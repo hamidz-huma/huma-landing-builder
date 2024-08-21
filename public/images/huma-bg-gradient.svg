@@ -1,0 +1,61 @@
+<svg class="animated-gradients__svg" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <rect width="150%" height="150%" x="-65%" y="-65%" fill="url(#gradient1a)"></rect>
+  <rect width="200%" height="200%" x="10%" y="-80%" fill="url(#gradient1b)"></rect>
+  <rect width="200%" height="150%" x="-50%" y="30%" fill="url(#gradient1c)"></rect>
+
+  <!--
+  colour sequence:
+
+  1. red, blue, transparent,
+  2. transparent, purple, yellow
+  3. purple, transparent, red
+  4. yellow, blue, transparent
+  5. transparent, purple, blue
+  6. yellow, transparent, red
+
+  red: #F2C9C9
+  blue: #CBEBF0
+  purple: #DCD5F5
+  yellow: #FFDA9F (theme is #FFE7C1, but too strong)
+
+  -->
+
+  <defs>
+    <radialGradient id="gradient1a">
+      <stop offset="0%" stop-color="#F2C9C9">
+        <animate
+          attributeName="stop-color"
+          values="#F2C9C9;#FFFFFF;#DCD5F5;#FFE7C1;#FFFFFF;#FFE7C1;#F2C9C9"
+          dur="20s"
+          repeatCount="indefinite">
+        </animate>
+      </stop>
+      <stop offset="100%" stop-color="#FFFFFF" />
+    </radialGradient>
+
+    <radialGradient id="gradient1b">
+      <stop offset="0%" stop-color="#CBEBF0">
+        <animate
+          attributeName="stop-color"
+          values="#CBEBF0;#DCD5F5;#FFFFFF;#CBEBF0;#DCD5F5;#FFFFFF;#CBEBF0"
+          dur="20s"
+          repeatCount="indefinite">
+        </animate>
+      </stop>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="gradient1c">
+      <stop offset="0%" stop-color="#FFFFFF">
+        <animate
+          attributeName="stop-color"
+          values="#FFFFFF;#FFE7C1;#F2C9C9;#FFFFFF;#CBEBF0;#F2C9C9;#FFFFFF"
+          dur="20s"
+          repeatCount="indefinite">
+        </animate>
+      </stop>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
