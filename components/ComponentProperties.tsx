@@ -20,8 +20,8 @@ export const ComponentProperties: React.FC = () => {
 
   useEffect(() => {
     if (!selectedElement) return;
-    const element = parse(selectedElement);
-
+    const element = parse(selectedElement) as unknown as React.JSX.Element;
+    
     setCurrentElement(element);
 
     const getAttributes = (
@@ -90,11 +90,12 @@ export const ComponentProperties: React.FC = () => {
     // You can now use the updated HTML string in your application
   };
 
-  const renderForm = (reactElement, attributes, path = "") => {
+  const renderForm = (reactElement: React.JSX.Element, attributes, path = "") => {
     const { children } = reactElement.props;
     return (
       <div>
         <h2>Element {`<${reactElement.type}/>`}</h2>
+        <h2>{`id: ${reactElement.props.id}`}</h2>
 
         {Object.entries(attributes).filter(([key,value])=> key!='id').map(([key, value]) => {
           if (key === "children" &&  React.isValidElement(reactElement)) {

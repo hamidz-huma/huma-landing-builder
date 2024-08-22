@@ -12,6 +12,13 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import parse from "html-react-parser";
 import { generateHtmlString, getCSSRuleReferences } from "@/lib/utils";
+import {
+  getElementPosition,
+  handleDragLeave,
+  handleDragOver,
+  handleDragStart,
+  handleDrop,
+} from "@/lib/drag-drop-utils";
 interface CanvasComponent {
   id: string;
   type: string;
@@ -21,13 +28,18 @@ interface CanvasComponent {
 export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const dispatch = useAppDispatch();
-
   const selectedElement = useAppSelector((state) => state.app.selectedElement);
-
+  let hoverMenu: HTMLDivElement | null = null;
   useEffect(() => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;
     if (!selectedElement || typeof selectedElement !== "string") return;
+    if (iframeDoc) {
+      hoverMenu = document.createElement("div");
+      hoverMenu.setAttribute("id", "builder-hover-menu");
+      iframeDoc.documentElement.appendChild(hoverMenu);
+    }
+
     const element = parse(selectedElement);
 
     if (!React.isValidElement(element)) return;
@@ -52,6 +64,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     if (iframe && iframeDoc) {
       // Find the element by ID
       const elementToUpdate = iframeDoc?.getElementById(element.props["id"]);
+
       if (elementToUpdate && iframeDoc) {
         // Replace the entire element with new content
         elementToUpdate.outerHTML = generateHtmlString(
@@ -62,6 +75,15 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
         // elementToUpdate.replaceWith(newElement);
       }
     }
+
+    const elements = iframeDoc?.querySelectorAll(".huma-builder-selected-item");
+    console.log(elements);
+    elements?.forEach((element) => {
+      element.addEventListener("dragstart", handleDragStart);
+      element.addEventListener("dragover", handleDragOver);
+      // element.addEventListener("dragleave", handleDragLeave);
+      element.addEventListener("drop", handleDrop);
+    });
   }, [selectedElement]);
 
   useEffect(() => {
@@ -74,30 +96,62 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
       if (iframeDoc) {
         iframeDoc.body.addEventListener("click", handleElementClick);
+        iframeDoc.body.addEventListener("mouseover", handleMouseOver);
       }
     };
 
+    const handleMouseOver = (event: MouseEvent) => {
+      const elementMoveOver = event.target as Element;
+      const {x, y} = getElementPosition(elementMoveOver);
+
+      const iframeDoc =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+      if (iframeDoc) {
+        iframeDoc
+          ?.querySelectorAll(".drag-hover")
+          .forEach((el) => el.classList.remove("drag-hover"));
+
+        const hoverMenu = iframeDoc.getElementById("builder-hover-menu");
+        if (hoverMenu) {
+          hoverMenu.innerHTML = elementMoveOver.tagName;
+          hoverMenu.setAttribute(
+            "style",
+            `position: absolute; top: ${y}px; left: ${x}px; background-color: lightgreen;color: white`
+          );
+        }
+      }
+
+      elementMoveOver.classList.add("drag-hover");
+    };
+
     const handleElementClick = (event) => {
+      if (!event) return;
+
       event.preventDefault();
       event.stopPropagation();
+
       const selectedElement = event.target as Element;
+
       // remove all item with selecte-item class
       const iframeDoc =
         iframe?.contentDocument || iframe?.contentWindow?.document;
       if (iframeDoc) {
-        const selectedItems = iframeDoc.querySelectorAll(".huma-builder-selected-item");
+        const selectedItems = iframeDoc.querySelectorAll(
+          ".huma-builder-selected-item"
+        );
 
         // Remove each selected element
         selectedItems.forEach((item) => {
-          item.classList.remove('huma-builder-selected-item')
-          item.removeAttribute('id')
+          item.classList.remove("huma-builder-selected-item");
+          item.removeAttribute("id");
+          item.removeAttribute("draggable");
         });
-        
       }
 
       selectedElement.classList.add("huma-builder-selected-item");
+      selectedElement.setAttribute("id", uuidv4());
+      selectedElement.setAttribute("draggable", "true");
       onElementSelect(selectedElement);
-      
 
       const rulesWithReferences = getCSSRuleReferences(
         iframeRef,
@@ -124,6 +178,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
         const iframeDoc =
           iframe.contentDocument || iframe?.contentWindow?.document;
         if (iframeDoc) {
+          iframeDoc.body.removeEventListener("mouseover", handleMouseOver);
           iframeDoc.body.removeEventListener("click", handleElementClick);
         }
       }
@@ -160,7 +215,7 @@ export const Canvas = (props: {
   }));
 
   const headerComponent: CanvasComponent = {
-    id: `${1}`,
+    id: `${0}`,
     type: ItemTypes.SECTION,
     component: (
       <section
@@ -173,7 +228,7 @@ export const Canvas = (props: {
   const sectionsComponent = sections
     ? sections.map((value, index) => {
         const component: CanvasComponent = {
-          id: `${index}`,
+          id: `${index + 1}`,
           type: ItemTypes.SECTION,
           component: (
             <section
@@ -254,9 +309,27 @@ export const Canvas = (props: {
       key={"0"}
       dangerouslySetInnerHTML={{
         __html: `
+        .draggable{
+            background-color: lightblue;
+            cursor: grab;
+            position: absolute;
+        }
+        .drop-target {
+            border: 2px dashed red;
+        }
+
+            .drag-hover,.drag-over{
+             border: 1px dashed lightgreen;
+            }
+        .placeholder {
+            background-color: rgba(0, 255, 0, 0.2);
+            border: 2px dashed green;
+            position: absolute;
+        }
     .huma-builder-selected-item {
      border: 1px dashed #cd3c4a;
     border-radius: 5px;
+      cursor: move;
     }
     `,
       }}
@@ -356,15 +429,16 @@ export const Canvas = (props: {
   //@ts-ignore
   const handleElementSelect = (element: Element) => {
     // Make some changes - for example, change the text color
-    if (!element.hasAttribute("id")) {
-      element.setAttribute("id", uuidv4());
-    }
+    // if (!element.hasAttribute("id")) {
+    // element.setAttribute("id", uuidv4());
+    // element.setAttribute("draggable", "true");
+    // }
   };
 
   return (
     <IframeComponent
       srcDoc={srcDoc}
-      sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
       onElementSelect={handleElementSelect}
       style={{
         padding: "20px",
