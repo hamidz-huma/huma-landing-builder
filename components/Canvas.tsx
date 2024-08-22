@@ -35,9 +35,11 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     const iframeDoc = iframe.contentDocument;
     if (!selectedElement || typeof selectedElement !== "string") return;
     if (iframeDoc) {
-      hoverMenu = document.createElement("div");
-      hoverMenu.setAttribute("id", "builder-hover-menu");
-      iframeDoc.documentElement.appendChild(hoverMenu);
+      if (!iframeDoc.getElementById("builder-hover-menu")){
+        hoverMenu = document.createElement("div");
+        hoverMenu.setAttribute("id", "builder-hover-menu");
+        iframeDoc.documentElement.appendChild(hoverMenu);
+      }
     }
 
     const element = parse(selectedElement);
@@ -81,7 +83,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     elements?.forEach((element) => {
       element.addEventListener("dragstart", handleDragStart);
       element.addEventListener("dragover", handleDragOver);
-      // element.addEventListener("dragleave", handleDragLeave);
+      element.addEventListener("dragleave", handleDragLeave);
       element.addEventListener("drop", handleDrop);
     });
   }, [selectedElement]);
@@ -96,13 +98,13 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
       if (iframeDoc) {
         iframeDoc.body.addEventListener("click", handleElementClick);
-        iframeDoc.body.addEventListener("mouseover", handleMouseOver);
+        // iframeDoc.body.addEventListener("mouseover", handleMouseOver);
       }
     };
 
-    const handleMouseOver = (event: MouseEvent) => {
+    const handleMouseOver = (event) => {
       const elementMoveOver = event.target as Element;
-      const {x, y} = getElementPosition(elementMoveOver);
+      const { x, y } = getElementPosition(elementMoveOver);
 
       const iframeDoc =
         iframe?.contentDocument || iframe?.contentWindow?.document;
@@ -113,11 +115,29 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
         const hoverMenu = iframeDoc.getElementById("builder-hover-menu");
         if (hoverMenu) {
-          hoverMenu.innerHTML = elementMoveOver.tagName;
+          hoverMenu.innerHTML = `<div style="display:flex">
+          <span class="builder-add-element">+</span>
+          <span class="builder-add-element"><></span>
+          <span  class="builder-add-element">${elementMoveOver.tagName}</span>
+          </div>`;
           hoverMenu.setAttribute(
             "style",
             `position: absolute; top: ${y}px; left: ${x}px; background-color: lightgreen;color: white`
           );
+          const elAdd = hoverMenu.getElementsByClassName(
+            "builder-add-element"
+          )[0];
+          const editAdd = hoverMenu.getElementsByClassName(
+            "builder-add-element"
+          )[1];
+
+          elAdd.addEventListener("click", (e) => {
+            const divElement = document.createElement("div");
+
+            divElement.innerHTML = "New Element";
+
+            elementMoveOver.appendChild(divElement);
+          });
         }
       }
 
@@ -126,31 +146,32 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
     const handleElementClick = (event) => {
       if (!event) return;
-
       event.preventDefault();
       event.stopPropagation();
-
+      const newID = uuidv4();
       const selectedElement = event.target as Element;
+
+      // if (["SECTION"].includes(selectedElement.tagName)) return;
 
       // remove all item with selecte-item class
       const iframeDoc =
         iframe?.contentDocument || iframe?.contentWindow?.document;
-      if (iframeDoc) {
-        const selectedItems = iframeDoc.querySelectorAll(
-          ".huma-builder-selected-item"
-        );
+      if (!iframeDoc) return;
+      const selectedItems = iframeDoc.querySelectorAll(
+        ".huma-builder-selected-item"
+      );
 
-        // Remove each selected element
-        selectedItems.forEach((item) => {
-          item.classList.remove("huma-builder-selected-item");
-          item.removeAttribute("id");
-          item.removeAttribute("draggable");
-        });
-      }
+      // Remove each selected element
+      selectedItems.forEach((item) => {
+        item.classList.remove("huma-builder-selected-item");
+        item.removeAttribute("id");
+        item.removeAttribute("draggable");
+      });
 
       selectedElement.classList.add("huma-builder-selected-item");
-      selectedElement.setAttribute("id", uuidv4());
+      selectedElement.setAttribute("id", newID);
       selectedElement.setAttribute("draggable", "true");
+
       onElementSelect(selectedElement);
 
       const rulesWithReferences = getCSSRuleReferences(
@@ -158,6 +179,72 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
         selectedElement.classList
       );
 
+      const hoverMenu = iframeDoc.getElementById("builder-hover-menu");
+      if (hoverMenu ) {
+        const { x, y } = getElementPosition(selectedElement);
+        hoverMenu.innerHTML = `<div>
+          <span class="builder-add-element">+</span>
+          <span class="builder-add-element">c</span>
+          <span class="builder-add-element">-</span>
+          <span  class="builder-add-element">${selectedElement.tagName}</span>
+          </div>`;
+        hoverMenu.setAttribute(
+          "style",
+          `position: absolute; top: ${
+            y - 25
+          }px; left: ${x}px; background-color: lightgreen;color: white`
+        );
+
+        const elAdd = hoverMenu.getElementsByClassName(
+          "builder-add-element"
+        )[0];
+
+        const elCopy = hoverMenu.getElementsByClassName(
+          "builder-add-element"
+        )[1];
+
+        const elDelete = hoverMenu.getElementsByClassName(
+          "builder-add-element"
+        )[2];
+
+        elCopy.addEventListener("click",(e)=>{
+          const iframe = document.getElementsByTagName("iframe")[0];
+          const iframeDoc =
+            iframe?.contentDocument || iframe?.contentWindow?.document;
+          if (!iframeDoc) return;
+          const elToClone = iframeDoc.getElementById(`${newID}`);
+          const divElement = elToClone?.cloneNode(true)
+          if (!divElement) return;
+          elToClone?.parentNode?.insertBefore(divElement,elToClone);
+          dispatch(setSelectedElement(selectedElement.outerHTML));
+        });
+
+        elDelete.addEventListener("click", (e) => {
+          const iframe = document.getElementsByTagName("iframe")[0];
+          const iframeDoc =
+            iframe?.contentDocument || iframe?.contentWindow?.document;
+          if (!iframeDoc) return;
+          const elToDelete = iframeDoc.getElementById(`${newID}`);
+          if (elToDelete) {
+            elToDelete.remove();
+            dispatch(setSelectedElement(null));
+          }
+        });
+
+        elAdd.addEventListener("click", (e) => {
+          const iframe = document.getElementsByTagName("iframe")[0];
+          const iframeDoc =
+          iframe?.contentDocument || iframe?.contentWindow?.document;
+          if (!iframe.contentWindow) return;
+          
+          iframe.contentWindow.postMessage('click', "*");
+
+          const divElement = document.createElement("div");
+          divElement.innerHTML = "New Element";
+          selectedElement.appendChild(divElement);
+          dispatch(setSelectedElement(selectedElement.outerHTML));
+        });
+      }
       // remove other element .selected-item
 
       if (rulesWithReferences) {
@@ -309,8 +396,22 @@ export const Canvas = (props: {
       key={"0"}
       dangerouslySetInnerHTML={{
         __html: `
+        #builder-hover-menu{
+        z-index: 10000
+        }
+        .builder-add-element{
+        color: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            background: black;
+            }
         .draggable{
-            background-color: lightblue;
+            background-color: lightgreen;
             cursor: grab;
             position: absolute;
         }
