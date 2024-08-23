@@ -1,3 +1,4 @@
+import { getSelectorByElementId } from "./utils";
 
 
 
@@ -89,7 +90,9 @@ export const handleDrop = (event) => {
     const iframeDoc = iframe.contentDocument;
 
     const id = event.dataTransfer.getData("text/plain");
-    const draggedElement = iframeDoc?.getElementById(id);
+    // const draggedElement = iframeDoc?.getElementById(id);
+    const draggedElement = iframeDoc?.querySelectorAll(getSelectorByElementId(id))[0];
+
     const lengthOfDropTargets = iframeDoc?.querySelectorAll('.drag-over').length || 1;
     const dropTarget = iframeDoc?.querySelectorAll('.drag-over')[lengthOfDropTargets-1] as Element
     console.log(dropTarget)

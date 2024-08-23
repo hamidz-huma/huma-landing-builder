@@ -24,7 +24,6 @@ export const DraggableComponentInCanvas: React.FC<DraggableComponentInCanvasProp
     const [, drop] = useDrop({
         accept: items,
         hover: (item: { id: number, index: number }) => {
-            console.log(item.index,item.id)
             if (item.index !== index) {
                 moveComponent(item.index, index);
                 item.index = index;

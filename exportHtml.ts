@@ -26,7 +26,6 @@ export async function exportHTML() {
     for (let i = 0; i < imgElements.length; i++) {
         const img = imgElements[i];
         const src = img.src;
-        console.log(src)
         const imageName = src.split('/').pop() || `image${i + 1}`;
         // Fetch the image and store it in the zip folder
         imgPromises.push(

@@ -1,49 +1,78 @@
 "use client";
 import React from "react";
 import * as CSS from 'csstype';
-import { Styles } from "@compai/css-gui";
+import { codegen, Styles } from "@compai/css-gui";
 
+export const getSelectorByElementId = (id: string): string => {
+    return "[data-builder-id=\"" + id + "\"]";
+}
 
+const CSS_PROP_NAMES = [
+    'color',
+    'font-family',
+    'font-size',
+];
 const selfClosingTags = new Set([
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
 ]);
+export const addStylesheetWithComputedStyles = (
+    elementId: string
+) => {
+    const iframe = document.getElementsByTagName("iframe")[0];
 
-export const getCSSRuleReferences = (iframeRef: React.RefObject<HTMLIFrameElement>, classList: DOMTokenList) => {
-    const classNames = Array.from(classList)
-    if (!iframeRef || !iframeRef.current || !iframeRef.current.contentWindow) return;
-
-    const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-    const rulesWithReferences = [];
-
-    // Get all stylesheets in the iframe
-    const stylesheets = iframeDoc.styleSheets;
-
-    // Iterate through each stylesheet
-    for (let sheet of stylesheets) {
-        try {
-            const rules = sheet.cssRules || [];
-
-            // Iterate through each rule in the stylesheet
-            for (let rule of rules) {
-                if (rule.selectorText && classNames.filter(item => item != 'huma-builder-selected-item').some(cls => rule.selectorText.includes(cls))) {
-                    rulesWithReferences.push({
-                        rule, // Reference to the actual CSSRule
-                        selector: rule.selectorText,
-                        style: rule.style,
-                    });
-                }
-            }
-        } catch (e) {
-            console.error('Error accessing stylesheet rules:', e);
-        }
+    // Get the document of the iframe
+    const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDocument) {
+        console.error("Unable to access the iframe document.");
+        return;
     }
 
-    return rulesWithReferences;
+    // Get the element by ID from the iframe
+    // const element = iframeDocument.getElementById(elementId);
+    const element = iframeDocument?.querySelectorAll(getSelectorByElementId(elementId))[0];
+    if (!element) {
+        console.error(`Element with ID "${elementId}" not found in the iframe.`);
+        return;
+    }
+
+    // Get the computed styles of the element
+    const computedStyles = getComputedStyle(element);
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
+    let styleElement = styleElementFounded ? styleElementFounded : iframeDocument.createElement("style");
+
+    if (!styleElementFounded) {
+        // Create a new style element in the iframe
+        styleElement.setAttribute('type', "text/css")
+        styleElement.setAttribute('id', "builder-custom-style")
+    }
+
+
+    iframeDocument.head.appendChild(styleElement);
+    const stylesheet = styleElement.sheet as CSSStyleSheet;
+    // Prepare the CSS rule as a string
+    let cssRule = getSelectorByElementId(elementId) + `{`;
+    for (let i = 0; i < computedStyles.length; i++) {
+        const propertyName = computedStyles[i];
+        const propertyValue = computedStyles.getPropertyValue(propertyName);
+        if (['color', 'font-size', 'background-color'].includes(propertyName)) {
+            cssRule += `${propertyName}: ${propertyValue} !important;`;
+        }
+    }
+    cssRule += '}';
+
+    try {
+        stylesheet.insertRule(cssRule, stylesheet.cssRules.length);
+        updateCSSRulePure(stylesheet.cssRules.item(0),cssRule)
+    } catch (error) {
+        console.log(error)
+    }
+
+    return stylesheet.cssRules.item(0);
 }
 
 export const convertPropertiesToCSSRule = (
     properties: Styles,
-): CSSStyleRule | null => {
+): CSSStyleDeclaration | null => {
     let rule: any = {};
     for (const prop in properties) {
         if (properties.hasOwnProperty(prop)) {
@@ -56,7 +85,10 @@ export const convertPropertiesToCSSRule = (
             }
         }
     }
-    return rule
+    return rule as CSSStyleDeclaration
+}
+export const kebabToCamelCase = (str: string): string => {
+    return str.replace(/-./g, match => match.charAt(1).toUpperCase());
 }
 export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
     const style: Styles = {};
@@ -65,9 +97,20 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
     for (let i = 0; i < rule.style.length; i++) {
         const propName = rule.style[i];
         // Copy each property to the CSS.PropertiesFallback object
-        if (propName as keyof Styles != undefined && propName == 'color') {
+        if (propName as keyof Styles != undefined && CSS_PROP_NAMES.includes(propName)) {
             try {
-                style[propName as keyof Styles] = rule.style.getPropertyValue(propName);
+                const value = rule.style.getPropertyValue(propName);
+                let v = undefined;
+                const unitMatch = value.match(/^(\d+(\.\d+)?)(px|em|rem|%)$/);
+                if (unitMatch) {
+                    const [, number, , unit] = unitMatch;
+                    v = { value: parseFloat(number), unit: unit }
+                } else {
+                    v = value
+                }
+
+                style[kebabToCamelCase(propName) as keyof Styles] = v;
+
             } catch (error) {
                 console.log(error)
             }
@@ -76,22 +119,97 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
 
     return style;
 }
-
-export const updateCSSRule = (ruleReference, newStyles) => {
+export const updateCSSRulePure = (currentRule, styleString: string) => {
     const iframe = document.getElementsByTagName("iframe")[0];
-    const iframeDoc = iframe.contentDocument;
-    const { rule } = ruleReference;
-    // Update the rule's style properties in the iframe's stylesheet
-    for (const [property, value] of Object.entries(newStyles)) {
-        rule.style.setProperty(property, value);
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+    let styleEl = iframeDocument.querySelector('style#builder-custom-style');
+
+    const styleSheet = styleEl.sheet as CSSStyleSheet;
+    for (let i = 0; i < styleSheet.cssRules.length; i++) {
+        const rule = styleSheet.cssRules[i];
+        if (rule.selectorText === currentRule.selectorText) {
+            styleSheet.deleteRule(i);
+            styleSheet.insertRule(styleString, i);
+            break;
+        }
     }
 
-    // // Force the iframe to re-render to reflect changes (optional, if needed)
-    // iframeDoc.body.style.display = 'none';
-    // iframeDoc.body.offsetHeight; // Trigger a reflow
-    // iframeDoc.body.style.display = '';
+    styleEl.innerHTML = Array.from(styleSheet.cssRules).map(s => s.cssText).join('\n')
+}
+export const updateCSSRule = (ruleReference: CSSStyleRule, newStyles: CSSStyleDeclaration | null) => {
+    if (!newStyles) return;
+    // Update the rule's style properties in the iframe's stylesheet
+    for (const [property, value] of Object.entries(newStyles)) {
+        ruleReference.style.setProperty(property, value);
+    }
+    overwriteIframeStyleRule(ruleReference.selectorText, ruleReference.style)
+}
+
+export const getCSSRuleReferencesBySelector = (selector: string) => {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
+    const styleSheet = styleElementFounded?.sheet as CSSStyleSheet;
+
+    let cssRule;
+
+    if (styleSheet) {
+        try {
+            for (let i = 0; i < styleSheet.cssRules.length; i++) {
+                const rule = styleSheet.cssRules[i];
+
+                if (rule.selectorText === selector) {
+                    cssRule = rule as CSSStyleRule;
+                    break;
+                }
+            }
+        } catch (error) {
+            console.log('Not Access')
+        }
+
+    }
+
+
+    return { cssRule }
+}
+
+export const overwriteIframeStyleRule = (
+    selector: string,
+    newStyle,
+) => {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
+    const styleSheet = styleElementFounded?.sheet as CSSStyleSheet;
+
+
+    for (let i = 0; i < styleSheet.cssRules.length; i++) {
+        const rule = styleSheet.cssRules[i];
+        if (rule.selectorText === selector) {
+            const cssRule = rule as CSSStyleRule;
+
+
+            // Overwrite the existing rule with new styles
+            for (const [property, value] of Object.entries(newStyle)) {
+                if (Number.isInteger(property)) {
+                    cssRule.style[cssRule.style[property]] = value as string;
+                }
+            }
+            console.log(cssRule, newStyle)
+            break;
+        }
+    }
 
 }
+
 export const getStylesFromIframe = (iframeRef: React.RefObject<HTMLIFrameElement>, classList: DOMTokenList) => {
     const classNames = Array.from(classList)
     if (!iframeRef || !iframeRef.current || !iframeRef.current.contentWindow) return;

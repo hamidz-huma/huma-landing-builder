@@ -18,7 +18,6 @@ const DraggableComponent: React.FC<DraggableComponentProps> = ({ type, component
         item: { type },
         end: (item, monitor) => {
             const dropResult = monitor.getDropResult();
-            console.log(dropResult)
         },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),

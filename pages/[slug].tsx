@@ -72,7 +72,6 @@ export const DndFrame = ({ children }) => {
   return children;
 };
 const Home: React.FC = (props: any) => {
-  console.log("data", props.data);
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {/* <ComponentToolbox /> */}

@@ -6,12 +6,17 @@ import { SectionComponent, DivComponent, Clocks, Hero } from "./index";
 import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import { useAppDispatch, useAppSelector } from "@/lib/hook";
 import {
-  setRulesWithReferences,
   setSelectedElement,
+  setSelectedElementStyle,
 } from "@/lib/store/canvasSlice";
 import { v4 as uuidv4 } from "uuid";
 import parse from "html-react-parser";
-import { generateHtmlString, getCSSRuleReferences } from "@/lib/utils";
+import {
+  addStylesheetWithComputedStyles,
+  generateHtmlString,
+  getCSSRuleReferencesBySelector,
+  getSelectorByElementId,
+} from "@/lib/utils";
 import {
   getElementPosition,
   handleDragLeave,
@@ -35,7 +40,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     const iframeDoc = iframe.contentDocument;
     if (!selectedElement || typeof selectedElement !== "string") return;
     if (iframeDoc) {
-      if (!iframeDoc.getElementById("builder-hover-menu")){
+      if (!iframeDoc.getElementById("builder-hover-menu")) {
         hoverMenu = document.createElement("div");
         hoverMenu.setAttribute("id", "builder-hover-menu");
         iframeDoc.documentElement.appendChild(hoverMenu);
@@ -65,7 +70,9 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
     if (iframe && iframeDoc) {
       // Find the element by ID
-      const elementToUpdate = iframeDoc?.getElementById(element.props["id"]);
+      const elementToUpdate = iframeDoc?.querySelectorAll(
+        getSelectorByElementId(element.props["data-builder-id"])
+      )[0];
 
       if (elementToUpdate && iframeDoc) {
         // Replace the entire element with new content
@@ -79,7 +86,6 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     }
 
     const elements = iframeDoc?.querySelectorAll(".huma-builder-selected-item");
-    console.log(elements);
     elements?.forEach((element) => {
       element.addEventListener("dragstart", handleDragStart);
       element.addEventListener("dragover", handleDragOver);
@@ -148,8 +154,11 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
       if (!event) return;
       event.preventDefault();
       event.stopPropagation();
-      const newID = uuidv4();
       const selectedElement = event.target as Element;
+
+      const newID = selectedElement.hasAttribute("data-builder-id")
+        ? selectedElement.getAttribute("data-builder-id") || uuidv4()
+        : uuidv4();
 
       // if (["SECTION"].includes(selectedElement.tagName)) return;
 
@@ -164,23 +173,22 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
       // Remove each selected element
       selectedItems.forEach((item) => {
         item.classList.remove("huma-builder-selected-item");
-        item.removeAttribute("id");
+
         item.removeAttribute("draggable");
       });
 
       selectedElement.classList.add("huma-builder-selected-item");
-      selectedElement.setAttribute("id", newID);
+      selectedElement.setAttribute("data-builder-id", newID);
       selectedElement.setAttribute("draggable", "true");
 
-      onElementSelect(selectedElement);
 
-      const rulesWithReferences = getCSSRuleReferences(
-        iframeRef,
-        selectedElement.classList
-      );
+      // const rulesWithReferences = getCSSRuleReferences(
+      //   iframeRef,
+      //   selectedElement.classList
+      // );
 
       const hoverMenu = iframeDoc.getElementById("builder-hover-menu");
-      if (hoverMenu ) {
+      if (hoverMenu) {
         const { x, y } = getElementPosition(selectedElement);
         hoverMenu.innerHTML = `<div>
           <span class="builder-add-element">+</span>
@@ -207,15 +215,19 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           "builder-add-element"
         )[2];
 
-        elCopy.addEventListener("click",(e)=>{
+        elCopy.addEventListener("click", (e) => {
           const iframe = document.getElementsByTagName("iframe")[0];
           const iframeDoc =
             iframe?.contentDocument || iframe?.contentWindow?.document;
           if (!iframeDoc) return;
-          const elToClone = iframeDoc.getElementById(`${newID}`);
-          const divElement = elToClone?.cloneNode(true)
+          // const elToClone = iframeDoc.getElementById(`${newID}`);
+          const elToClone = iframeDoc?.querySelectorAll(
+            getSelectorByElementId(newID)
+          )[0];
+
+          const divElement = elToClone?.cloneNode(true);
           if (!divElement) return;
-          elToClone?.parentNode?.insertBefore(divElement,elToClone);
+          elToClone?.parentNode?.insertBefore(divElement, elToClone);
           dispatch(setSelectedElement(selectedElement.outerHTML));
         });
 
@@ -224,20 +236,23 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           const iframeDoc =
             iframe?.contentDocument || iframe?.contentWindow?.document;
           if (!iframeDoc) return;
-          const elToDelete = iframeDoc.getElementById(`${newID}`);
+          // const elToDelete = iframeDoc.getElementById(`${newID}`);
+          const elToDelete = iframeDoc?.querySelectorAll(
+            getSelectorByElementId(newID)
+          )[0];
           if (elToDelete) {
             elToDelete.remove();
             dispatch(setSelectedElement(null));
           }
         });
-
+        
         elAdd.addEventListener("click", (e) => {
           const iframe = document.getElementsByTagName("iframe")[0];
           const iframeDoc =
-          iframe?.contentDocument || iframe?.contentWindow?.document;
+            iframe?.contentDocument || iframe?.contentWindow?.document;
           if (!iframe.contentWindow) return;
-          
-          iframe.contentWindow.postMessage('click', "*");
+
+          iframe.contentWindow.postMessage("click", "*");
 
           const divElement = document.createElement("div");
           divElement.innerHTML = "New Element";
@@ -245,13 +260,21 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           dispatch(setSelectedElement(selectedElement.outerHTML));
         });
       }
-      // remove other element .selected-item
 
-      if (rulesWithReferences) {
-        dispatch(setRulesWithReferences(rulesWithReferences));
+      const { cssRule } = getCSSRuleReferencesBySelector(
+        getSelectorByElementId(newID)
+      );
+
+      if (!cssRule) {
+        const r = addStylesheetWithComputedStyles(newID);
+        dispatch(setSelectedElementStyle(r));
+      }else{
+        dispatch(setSelectedElementStyle(cssRule));
       }
-
       dispatch(setSelectedElement(selectedElement.outerHTML));
+
+      onElementSelect(selectedElement);
+
     };
 
     // Add load event listener to ensure the iframe is fully loaded before attaching the click listener
@@ -464,6 +487,7 @@ export const Canvas = (props: {
     if (iframeDoc) {
       iframeDoc.body.innerHTML = ``;
       iframeDoc.head.innerHTML = `<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>`;
+      iframeDoc.head.innerHTML = `<style id="builder-custom-style"></style>`;
 
       const styleHTMLs = [
         renderToStaticMarkup(
@@ -507,7 +531,7 @@ export const Canvas = (props: {
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = styleHTML;
         const styleNode = tempDiv.querySelector("section");
-        styleNode?.setAttribute("id", id);
+        styleNode?.setAttribute("builder-section-id", id);
         if (styleNode?.firstElementChild) {
           iframeDoc.body.appendChild(styleNode);
         }

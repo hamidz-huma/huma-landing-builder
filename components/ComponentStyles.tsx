@@ -13,21 +13,47 @@ import {
   convertPropertiesToCSSRule,
   generateHtmlString,
   updateCSSRule,
+  updateCSSRulePure,
 } from "@/lib/utils";
-import { Editor, Fieldset, Inputs } from "@compai/css-gui";
+import { codegen, Editor, Fieldset, Inputs } from "@compai/css-gui";
 import { defaultTheme } from "@/lib/default-theme";
 
 export const ComponentStyles: React.FC = () => {
-  const rulesWithReferences = useAppSelector(
-    (state) => state.app.rulesWithReferences
-  );
+  const currentRule = useAppSelector((state) => state.app.selectedElementStyle);
+  const selectedElement = useAppSelector((state) => state.app.selectedElement);
+
+  const [value, setValue] = useState<any>(null);
+  useEffect(() => {
+    if (!currentRule) return;
+    const v = convertCSSRuleToProperties(currentRule);
+    setValue(v);
+    return;
+  }, [selectedElement]);
 
   return (
     <div style={{}}>
       <h3>Styles</h3>
       <form>
         <>
-          {rulesWithReferences.map((rule, index) => {
+          {currentRule ? (
+            <>
+              <h1>{currentRule.selectorText}</h1>
+              <Editor
+                showRegenerate={false}
+                key={`editor-${currentRule.selectorText}`}
+                theme={defaultTheme}
+                styles={value}
+                onChange={(newStyle) => {
+                  setValue(newStyle);
+                  updateCSSRulePure(currentRule,codegen.css(value,{selector:currentRule.selectorText}))
+                }}
+              >
+              </Editor>
+            </>
+          ) : (
+            <></>
+          )}
+          {/* {rulesWithReferences.map((rule, index) => {
             if (!rule) return null;
 
             const value = convertCSSRuleToProperties(rule.rule);
@@ -67,17 +93,20 @@ export const ComponentStyles: React.FC = () => {
                     <h3>Colors</h3>
                     <Inputs.Color />
                     <Inputs.BackgroundColor />
+                    <Inputs.Flex />
+                    <Inputs.Margin />
+                    <Inputs.Padding />
+                    <Inputs.Border />
+                    <Inputs.BorderRadius />
+                    <Inputs.AlignItems />
+                    <Inputs.JustifyContent />
+                    <Inputs.FlexDirection />
+                    <Inputs.BackgroundImage />
                   </div>
                 </Editor>
               </div>
             );
-          })}
-          <button
-            type="submit"
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded"
-          >
-            Save
-          </button>
+          })} */}
         </>
       </form>
     </div>
