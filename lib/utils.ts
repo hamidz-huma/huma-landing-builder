@@ -2,15 +2,30 @@
 import React from "react";
 import * as CSS from 'csstype';
 import { codegen, Styles } from "@compai/css-gui";
-
+export const BUILDER_IDS = {
+    'DATA_ID': 'data-builder-id'
+}
 export const getSelectorByElementId = (id: string): string => {
-    return "[data-builder-id=\"" + id + "\"]";
+    return `[${BUILDER_IDS.DATA_ID}="${id}"]`;
 }
 
 const CSS_PROP_NAMES = [
     'color',
-    'font-family',
+    'border',
+    'margin',
+    'font',
     'font-size',
+    'margin-top',
+    'margin-right',
+    'margin-left',
+    'margin-bottom',
+    'border',
+    'text-align',
+    'font-family',
+    'font-weight',
+    'line-height',
+    'font-size',
+    'display'
 ];
 const selfClosingTags = new Set([
     'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
@@ -46,7 +61,6 @@ export const addStylesheetWithComputedStyles = (
         styleElement.setAttribute('id', "builder-custom-style")
     }
 
-
     iframeDocument.head.appendChild(styleElement);
     const stylesheet = styleElement.sheet as CSSStyleSheet;
     // Prepare the CSS rule as a string
@@ -54,15 +68,15 @@ export const addStylesheetWithComputedStyles = (
     for (let i = 0; i < computedStyles.length; i++) {
         const propertyName = computedStyles[i];
         const propertyValue = computedStyles.getPropertyValue(propertyName);
-        if (['color', 'font-size', 'background-color'].includes(propertyName)) {
-            cssRule += `${propertyName}: ${propertyValue} !important;`;
+        if (CSS_PROP_NAMES.includes(propertyName)) {
+            cssRule += `${propertyName}: ${propertyValue};`;
         }
     }
     cssRule += '}';
 
     try {
         stylesheet.insertRule(cssRule, stylesheet.cssRules.length);
-        updateCSSRulePure(stylesheet.cssRules.item(0),cssRule)
+        updateCSSRulePure(stylesheet.cssRules.item(0), cssRule)
     } catch (error) {
         console.log(error)
     }
@@ -97,10 +111,12 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
     for (let i = 0; i < rule.style.length; i++) {
         const propName = rule.style[i];
         // Copy each property to the CSS.PropertiesFallback object
-        if (propName as keyof Styles != undefined && CSS_PROP_NAMES.includes(propName)) {
+        if (CSS_PROP_NAMES.includes(propName)) {
             try {
-                const value = rule.style.getPropertyValue(propName);
-                let v = undefined;
+
+                const newPropName = kebabToCamelCase(propName) as keyof Styles
+                const value = rule.style[newPropName] || rule.style.getPropertyValue(newPropName);
+                let v: any = undefined;
                 const unitMatch = value.match(/^(\d+(\.\d+)?)(px|em|rem|%)$/);
                 if (unitMatch) {
                     const [, number, , unit] = unitMatch;
@@ -108,8 +124,13 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
                 } else {
                     v = value
                 }
+                if (v) {
+                    if (newPropName == 'fontSize' && (value as string).includes('clamp')) { 
+                    }else{
+                        style[newPropName] = v
+                    }
 
-                style[kebabToCamelCase(propName) as keyof Styles] = v;
+                }
 
             } catch (error) {
                 console.log(error)
@@ -119,6 +140,7 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
 
     return style;
 }
+
 export const updateCSSRulePure = (currentRule, styleString: string) => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDocument =
@@ -138,13 +160,88 @@ export const updateCSSRulePure = (currentRule, styleString: string) => {
 
     styleEl.innerHTML = Array.from(styleSheet.cssRules).map(s => s.cssText).join('\n')
 }
-export const updateCSSRule = (ruleReference: CSSStyleRule, newStyles: CSSStyleDeclaration | null) => {
-    if (!newStyles) return;
-    // Update the rule's style properties in the iframe's stylesheet
-    for (const [property, value] of Object.entries(newStyles)) {
-        ruleReference.style.setProperty(property, value);
+export const updateCSSRule = (ruleReference: CSSStyleRule, styleString: string | null) => {
+    if (!styleString) return;
+
+    const iframe = document.getElementsByTagName("iframe")[0];
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+
+    const stylesheets = iframeDocument.styleSheets;
+
+    let cssRule;
+    for (let styleSheet of stylesheets) {
+        if (styleSheet) {
+            try {
+                for (let i = 0; i < styleSheet.cssRules.length; i++) {
+                    const rule = styleSheet.cssRules[i];
+                    if (rule.selectorText === `${ruleReference.selectorText}`) {
+                        cssRule = rule as CSSStyleRule;
+                        styleSheet.deleteRule(i);
+                        styleSheet.insertRule(styleString, i);
+                        const styleEl = styleSheet.ownerNode;
+                        styleEl.innerHTML = Array.from(styleSheet.cssRules).map(s => s.cssText).join('\n')
+                        break;
+                    }
+                }
+
+            } catch (error) {
+                console.log('Not Access')
+            }
+
+        }
     }
-    overwriteIframeStyleRule(ruleReference.selectorText, ruleReference.style)
+
+
+    // find stylesheet
+}
+export const getClassCombinations = (classes: string[]): string[] => {
+    const result: string[] = [];
+
+    // Helper function to generate combinations recursively
+    function generateCombinations(prefix: string, index: number) {
+        for (let i = index; i < classes.length; i++) {
+            const newCombination = prefix ? `${prefix}.${classes[i]}` : `.${classes[i]}`;
+            result.push(newCombination);
+            generateCombinations(newCombination, i + 1);
+        }
+    }
+
+    // Start generating combinations from index 0
+    generateCombinations('', 0);
+
+    return result;
+}
+
+export const getCSSRuleReferencesByClassNames = (selectors: Array<string>) => {
+    return getClassCombinations(selectors).map((selector) => {
+        const iframe = document.getElementsByTagName("iframe")[0];
+        const iframeDocument =
+            iframe?.contentDocument || iframe?.contentWindow?.document;
+        if (!iframeDocument) return;
+
+        const stylesheets = iframeDocument.styleSheets;
+
+        let cssRule;
+        for (let styleSheet of stylesheets) {
+            if (styleSheet) {
+                try {
+                    for (let i = 0; i < styleSheet.cssRules.length; i++) {
+                        const rule = styleSheet.cssRules[i];
+                        if (rule.selectorText == selector) {
+                            cssRule = rule as CSSStyleRule;
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    console.log('Not Access')
+                }
+            }
+        }
+
+        return cssRule
+    }).filter((f) => !!f)
 }
 
 export const getCSSRuleReferencesBySelector = (selector: string) => {
@@ -162,7 +259,6 @@ export const getCSSRuleReferencesBySelector = (selector: string) => {
         try {
             for (let i = 0; i < styleSheet.cssRules.length; i++) {
                 const rule = styleSheet.cssRules[i];
-
                 if (rule.selectorText === selector) {
                     cssRule = rule as CSSStyleRule;
                     break;
@@ -174,8 +270,7 @@ export const getCSSRuleReferencesBySelector = (selector: string) => {
 
     }
 
-
-    return { cssRule }
+    return cssRule
 }
 
 export const overwriteIframeStyleRule = (
@@ -203,7 +298,6 @@ export const overwriteIframeStyleRule = (
                     cssRule.style[cssRule.style[property]] = value as string;
                 }
             }
-            console.log(cssRule, newStyle)
             break;
         }
     }
@@ -247,6 +341,7 @@ export const getStylesFromIframe = (iframeRef: React.RefObject<HTMLIFrameElement
 
     return styles;
 }
+
 export const updateElementStyle = (elementReference, newStyles) => {
     const { element, computedStyle } = elementReference;
 

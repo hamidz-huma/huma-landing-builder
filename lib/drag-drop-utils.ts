@@ -1,4 +1,4 @@
-import { getSelectorByElementId } from "./utils";
+import { BUILDER_IDS, getSelectorByElementId } from "./utils";
 
 
 
@@ -34,7 +34,7 @@ export const getElementPosition = (element: Element): { x: number; y: number } =
 
 export const handleDragStart = (event) => {
     if (!event || !event.target.id && ['HTML', 'BODY'].includes(event.target.tagName)) return
-    event.dataTransfer.setData("text/plain", event.target.id);
+    event.dataTransfer.setData("text/plain", event.target.getAttribute(BUILDER_IDS.DATA_ID));
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;
     iframeDoc?.querySelectorAll('.drag-hover').forEach(el => el.classList.remove('drag-hover'));
@@ -90,12 +90,11 @@ export const handleDrop = (event) => {
     const iframeDoc = iframe.contentDocument;
 
     const id = event.dataTransfer.getData("text/plain");
-    // const draggedElement = iframeDoc?.getElementById(id);
     const draggedElement = iframeDoc?.querySelectorAll(getSelectorByElementId(id))[0];
 
     const lengthOfDropTargets = iframeDoc?.querySelectorAll('.drag-over').length || 1;
     const dropTarget = iframeDoc?.querySelectorAll('.drag-over')[lengthOfDropTargets-1] as Element
-    console.log(dropTarget)
+
     if (draggedElement && dropTarget) {
 
         const targetRect = dropTarget.getBoundingClientRect();
@@ -105,15 +104,16 @@ export const handleDrop = (event) => {
         const targetMidpointY = targetRect.top + targetRect.height / 2;
 
 
-        dropTarget.insertAdjacentElement('beforeend',
-            draggedElement
-        );
-
+        // dropTarget.insertAdjacentElement('beforeend',
+        //     draggedElement
+        // );
+        if (dropTarget.parentNode){
+            dropTarget.parentNode.insertBefore(draggedElement,dropTarget.nextElementSibling);
+        }
 
         iframeDoc?.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         iframeDoc?.querySelectorAll('.draggable').forEach(el => {
             el.classList.remove('draggable')
-
         });
     }
 }

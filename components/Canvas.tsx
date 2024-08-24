@@ -5,7 +5,11 @@ import { ItemTypes } from "../constants";
 import { SectionComponent, DivComponent, Clocks, Hero } from "./index";
 import { renderToStaticMarkup, renderToString } from "react-dom/server";
 import { useAppDispatch, useAppSelector } from "@/lib/hook";
+import Modal from "react-modal";
+
 import {
+  setMessage,
+  setRulesWithReferences,
   setSelectedElement,
   setSelectedElementStyle,
 } from "@/lib/store/canvasSlice";
@@ -15,7 +19,9 @@ import {
   addStylesheetWithComputedStyles,
   generateHtmlString,
   getCSSRuleReferencesBySelector,
+  getCSSRuleReferencesByClassNames,
   getSelectorByElementId,
+  BUILDER_IDS,
 } from "@/lib/utils";
 import {
   getElementPosition,
@@ -24,28 +30,36 @@ import {
   handleDragStart,
   handleDrop,
 } from "@/lib/drag-drop-utils";
+export interface IFrameMessage {
+  source: string;
+  message: {
+    type: string;
+    data: any;
+  };
+}
+
+const customStyles = {
+  content: {
+  },
+};
+
 interface CanvasComponent {
   id: string;
   type: string;
   component: JSX.Element;
 }
 //@ts-ignore
-export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
+export const IframeComponent = ({ srcDoc, ...props }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const dispatch = useAppDispatch();
   const selectedElement = useAppSelector((state) => state.app.selectedElement);
+  const message = useAppSelector((state) => state.app.message);
+
   let hoverMenu: HTMLDivElement | null = null;
   useEffect(() => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;
     if (!selectedElement || typeof selectedElement !== "string") return;
-    if (iframeDoc) {
-      if (!iframeDoc.getElementById("builder-hover-menu")) {
-        hoverMenu = document.createElement("div");
-        hoverMenu.setAttribute("id", "builder-hover-menu");
-        iframeDoc.documentElement.appendChild(hoverMenu);
-      }
-    }
 
     const element = parse(selectedElement);
 
@@ -70,9 +84,9 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
     if (iframe && iframeDoc) {
       // Find the element by ID
-      const elementToUpdate = iframeDoc?.querySelectorAll(
-        getSelectorByElementId(element.props["data-builder-id"])
-      )[0];
+      const elementToUpdate = iframeDoc?.querySelector(
+        getSelectorByElementId(element.props[BUILDER_IDS.DATA_ID])
+      );
 
       if (elementToUpdate && iframeDoc) {
         // Replace the entire element with new content
@@ -85,7 +99,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
       }
     }
 
-    const elements = iframeDoc?.querySelectorAll(".huma-builder-selected-item");
+    const elements = iframeDoc?.querySelectorAll(`[${BUILDER_IDS.DATA_ID}]`);
     elements?.forEach((element) => {
       element.addEventListener("dragstart", handleDragStart);
       element.addEventListener("dragover", handleDragOver);
@@ -104,7 +118,35 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
 
       if (iframeDoc) {
         iframeDoc.body.addEventListener("click", handleElementClick);
-        // iframeDoc.body.addEventListener("mouseover", handleMouseOver);
+        if (!iframeDoc.getElementById("builder-hover-menu")) {
+          hoverMenu = document.createElement("div");
+          hoverMenu.setAttribute("id", "builder-hover-menu");
+          iframeDoc.documentElement.appendChild(hoverMenu);
+        }
+
+        iframe?.contentWindow?.addEventListener("message", (e) => {
+          const { source, message } = e.data;
+          if (source == "parent") {
+            if (message.type == "add") {
+              const selectedElement = iframeDoc?.querySelector(
+                getSelectorByElementId(message.data.selectedElementId)
+              );
+              if (!selectedElement || !selectedElement.parentNode) return;
+              const elementToAdd = message.data.content;
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(elementToAdd, "text/html");
+              const htmlNode = doc.body.firstChild;
+              if (!htmlNode) return;
+
+              selectedElement.parentNode.insertBefore(
+                htmlNode,
+                selectedElement.nextElementSibling
+              );
+
+              console.log(selectedElement, message.data.content);
+            }
+          }
+        });
       }
     };
 
@@ -128,22 +170,8 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           </div>`;
           hoverMenu.setAttribute(
             "style",
-            `position: absolute; top: ${y}px; left: ${x}px; background-color: lightgreen;color: white`
+            `position: absolute; top: ${y - 35}px; left: ${x}px; `
           );
-          const elAdd = hoverMenu.getElementsByClassName(
-            "builder-add-element"
-          )[0];
-          const editAdd = hoverMenu.getElementsByClassName(
-            "builder-add-element"
-          )[1];
-
-          elAdd.addEventListener("click", (e) => {
-            const divElement = document.createElement("div");
-
-            divElement.innerHTML = "New Element";
-
-            elementMoveOver.appendChild(divElement);
-          });
         }
       }
 
@@ -151,13 +179,14 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
     };
 
     const handleElementClick = (event) => {
+      console.log(event.target);
       if (!event) return;
       event.preventDefault();
       event.stopPropagation();
       const selectedElement = event.target as Element;
 
-      const newID = selectedElement.hasAttribute("data-builder-id")
-        ? selectedElement.getAttribute("data-builder-id") || uuidv4()
+      const newID = selectedElement.hasAttribute(BUILDER_IDS.DATA_ID)
+        ? selectedElement.getAttribute(BUILDER_IDS.DATA_ID) || uuidv4()
         : uuidv4();
 
       // if (["SECTION"].includes(selectedElement.tagName)) return;
@@ -167,27 +196,20 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
         iframe?.contentDocument || iframe?.contentWindow?.document;
       if (!iframeDoc) return;
       const selectedItems = iframeDoc.querySelectorAll(
-        ".huma-builder-selected-item"
+        `[${BUILDER_IDS.DATA_ID}]`
       );
 
       // Remove each selected element
       selectedItems.forEach((item) => {
-        item.classList.remove("huma-builder-selected-item");
-
+        item.removeAttribute(BUILDER_IDS.DATA_ID);
         item.removeAttribute("draggable");
       });
 
-      selectedElement.classList.add("huma-builder-selected-item");
-      selectedElement.setAttribute("data-builder-id", newID);
+      selectedElement.setAttribute(BUILDER_IDS.DATA_ID, newID);
       selectedElement.setAttribute("draggable", "true");
 
-
-      // const rulesWithReferences = getCSSRuleReferences(
-      //   iframeRef,
-      //   selectedElement.classList
-      // );
-
       const hoverMenu = iframeDoc.getElementById("builder-hover-menu");
+      console.log(hoverMenu);
       if (hoverMenu) {
         const { x, y } = getElementPosition(selectedElement);
         hoverMenu.innerHTML = `<div>
@@ -198,9 +220,7 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           </div>`;
         hoverMenu.setAttribute(
           "style",
-          `position: absolute; top: ${
-            y - 25
-          }px; left: ${x}px; background-color: lightgreen;color: white`
+          `position: absolute; top: ${y - 35}px; left: ${x}px`
         );
 
         const elAdd = hoverMenu.getElementsByClassName(
@@ -221,13 +241,13 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
             iframe?.contentDocument || iframe?.contentWindow?.document;
           if (!iframeDoc) return;
           // const elToClone = iframeDoc.getElementById(`${newID}`);
-          const elToClone = iframeDoc?.querySelectorAll(
-            getSelectorByElementId(newID)
-          )[0];
+          const elToClone = selectedElement;
 
-          const divElement = elToClone?.cloneNode(true);
+          const divElement = elToClone?.cloneNode(true) as Element;
+          divElement.removeAttribute(BUILDER_IDS.DATA_ID);
+          divElement.removeAttribute("draggable");
           if (!divElement) return;
-          elToClone?.parentNode?.insertBefore(divElement, elToClone);
+          selectedElement?.parentNode?.insertBefore(divElement, elToClone);
           dispatch(setSelectedElement(selectedElement.outerHTML));
         });
 
@@ -237,44 +257,50 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
             iframe?.contentDocument || iframe?.contentWindow?.document;
           if (!iframeDoc) return;
           // const elToDelete = iframeDoc.getElementById(`${newID}`);
-          const elToDelete = iframeDoc?.querySelectorAll(
-            getSelectorByElementId(newID)
-          )[0];
+          const elToDelete = selectedElement;
           if (elToDelete) {
             elToDelete.remove();
             dispatch(setSelectedElement(null));
           }
         });
-        
+
         elAdd.addEventListener("click", (e) => {
           const iframe = document.getElementsByTagName("iframe")[0];
-          const iframeDoc =
-            iframe?.contentDocument || iframe?.contentWindow?.document;
+
           if (!iframe.contentWindow) return;
+          const message: IFrameMessage = {
+            source: "iframe",
+            message: {
+              type: "open-add-new-element-dialog",
+              data: {
+                selectedElementId: newID,
+              },
+            },
+          };
 
-          iframe.contentWindow.postMessage("click", "*");
-
-          const divElement = document.createElement("div");
-          divElement.innerHTML = "New Element";
-          selectedElement.appendChild(divElement);
-          dispatch(setSelectedElement(selectedElement.outerHTML));
+          iframe.contentWindow.parent.postMessage(message, "*");
         });
       }
 
-      const { cssRule } = getCSSRuleReferencesBySelector(
+      const cssRule = getCSSRuleReferencesBySelector(
         getSelectorByElementId(newID)
       );
 
       if (!cssRule) {
         const r = addStylesheetWithComputedStyles(newID);
         dispatch(setSelectedElementStyle(r));
-      }else{
+      } else {
         dispatch(setSelectedElementStyle(cssRule));
       }
+
+      const rulesWithReferences = getCSSRuleReferencesByClassNames(
+        Array.from(selectedElement.classList)
+      );
+      dispatch(setRulesWithReferences(rulesWithReferences));
+
       dispatch(setSelectedElement(selectedElement.outerHTML));
 
-      onElementSelect(selectedElement);
-
+      // onElementSelect(selectedElement);
     };
 
     // Add load event listener to ensure the iframe is fully loaded before attaching the click listener
@@ -289,11 +315,26 @@ export const IframeComponent = ({ srcDoc, onElementSelect, ...props }) => {
           iframe.contentDocument || iframe?.contentWindow?.document;
         if (iframeDoc) {
           iframeDoc.body.removeEventListener("mouseover", handleMouseOver);
-          iframeDoc.body.removeEventListener("click", handleElementClick);
+          // iframeDoc.body.removeEventListener("click", handleElementClick);
         }
       }
     };
-  }, [onElementSelect]);
+  }, []);
+
+  const onRecievedMessage = (event: MessageEvent) => {
+    if (event.data.source == "iframe") {
+      dispatch(setMessage(event.data));
+    }
+  };
+
+  const listener = useCallback(onRecievedMessage, [message]);
+
+  useEffect(function () {
+    window.addEventListener("message", listener);
+    return function () {
+      window.removeEventListener("message", listener);
+    };
+  });
 
   return (
     <iframe
@@ -313,16 +354,46 @@ export const Canvas = (props: {
 }) => {
   const sections: Array<any> = props.data?.flatData.sections;
   const header = props.data?.flatData?.header;
-  const items = Object.values(ItemTypes);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const message = useAppSelector((state) => state.app.message);
   const [srcDoc, setSrcDoc] = useState<string>();
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: items,
-    drop: (item: { type: string }) => addComponent(item.type),
-    collect: (monitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  }));
+  const [modalIsOpen, setIsOpen] = useState(false);
+  const [selectedElementId, setSelectedElementId] = useState<string>();
+
+  useEffect(() => {
+    if (message?.message.type == "open-add-new-element-dialog") {
+      const id = message?.message.data.selectedElementId;
+      openElementSelectorDialog(id);
+    }
+  }, [message]);
+
+  const openElementSelectorDialog = (id: string) => {
+    setSelectedElementId(id);
+    setIsOpen(true);
+  };
+
+  const afterOpenModal = () => {
+    // references are now sync'd and can be accessed.
+    console.log("closed");
+  };
+
+  const closeModal = (value: string) => {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    if (!iframe.contentWindow) return;
+    const message: IFrameMessage = {
+      source: "parent",
+      message: {
+        type: "add",
+        data: {
+          selectedElementId,
+          content: value || `<div>EMPTY</div>`,
+        },
+      },
+    };
+
+    iframe.contentWindow.postMessage(message, "*");
+
+    setIsOpen(false);
+  };
 
   const headerComponent: CanvasComponent = {
     id: `${0}`,
@@ -420,10 +491,15 @@ export const Canvas = (props: {
       dangerouslySetInnerHTML={{
         __html: `
         #builder-hover-menu{
-        z-index: 10000
+        z-index: 10000;
+        background-color: #478dea;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+    box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
         }
         .builder-add-element{
-        color: white;
+            color: white;
             font-size: 12px;
             cursor: pointer;
             display: inline-block;
@@ -450,7 +526,7 @@ export const Canvas = (props: {
             border: 2px dashed green;
             position: absolute;
         }
-    .huma-builder-selected-item {
+    *[data-builder-id] {
      border: 1px dashed #cd3c4a;
     border-radius: 5px;
       cursor: move;
@@ -497,13 +573,13 @@ export const Canvas = (props: {
             href="https://cdn.jsdelivr.net/npm/@splidejs/splide@3.2.2/dist/css/splide-core.min.css"
           ></link>
         ),
-        renderToStaticMarkup(
-          <link
-            rel="stylesheet"
-            type="text/css"
-            href="https://cdn.prod.website-files.com/6684599c709edcc788d9219e/css/landing-page-huma-workspace.b0981047a.min.css"
-          ></link>
-        ),
+        // renderToStaticMarkup(
+        //   <link
+        //     rel="stylesheet"
+        //     type="text/css"
+        //     href="https://cdn.prod.website-files.com/6684599c709edcc788d9219e/css/landing-page-huma-workspace.b0981047a.min.css"
+        //   ></link>
+        // ),
       ];
 
       styleHTMLs.forEach((styleHTMLs) => {
@@ -561,16 +637,47 @@ export const Canvas = (props: {
   };
 
   return (
-    <IframeComponent
-      srcDoc={srcDoc}
-      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
-      onElementSelect={handleElementSelect}
-      style={{
-        padding: "20px",
-        width: "100%",
-        height: "100%",
-        overflowY: "auto",
-      }}
-    />
+    <>
+      <IframeComponent
+        srcDoc={srcDoc}
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
+        style={{
+          padding: "20px",
+          width: "100%",
+          height: "100%",
+          overflowY: "auto",
+        }}
+      />
+      <Modal
+        isOpen={modalIsOpen}
+        style={customStyles}
+        contentLabel="Element Selector"
+        onAfterOpen={afterOpenModal}
+        onRequestClose={() => closeModal("<div></div>")}
+      >
+        <div>
+          <div>
+            <h2>Heading</h2>
+            <button onClick={() => closeModal("<h1>Sample Heading 1</h1>")}>Heading 1</button>
+            <button onClick={() => closeModal("<h2>Sample Heading 2</h2>")}>Heading 2</button>
+            <h2>Paragrapgh</h2>
+            <button onClick={() => closeModal("<p>Sample Paragraph</p>")}>
+              Paragrapgh
+            </button>
+            <h2>Image</h2>
+            <button
+              onClick={() => closeModal("<img width='200px' height='200px'/>")}
+            >
+              Image
+            </button>
+          </div>
+
+          <div>
+          <h2>Template</h2>
+          <button onClick={() => closeModal("<h1></h1>")}>Heading 1</button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };

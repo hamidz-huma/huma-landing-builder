@@ -15,20 +15,45 @@ import {
   updateCSSRule,
   updateCSSRulePure,
 } from "@/lib/utils";
-import { codegen, Editor, Fieldset, Inputs } from "@compai/css-gui";
+import { codegen, Editor, Fieldset, Inputs, Styles } from "@compai/css-gui";
 import { defaultTheme } from "@/lib/default-theme";
 
 export const ComponentStyles: React.FC = () => {
   const currentRule = useAppSelector((state) => state.app.selectedElementStyle);
   const selectedElement = useAppSelector((state) => state.app.selectedElement);
+  const rulesWithReferences = useAppSelector(
+    (state) => state.app.rulesWithReferences
+  );
 
   const [value, setValue] = useState<any>(null);
+  const [values, setValues] = useState<Array<string>>([]);
+
+  const setValueByIndex = (value, index) => {
+    const newValues = [...values];
+    newValues[index] = value;
+    setValues(newValues);
+  };
+
   useEffect(() => {
     if (!currentRule) return;
     const v = convertCSSRuleToProperties(currentRule);
     setValue(v);
+
     return;
   }, [selectedElement]);
+
+  useEffect(() => {
+    if (!rulesWithReferences) return;
+    const uniqueSet = new Set<any>(
+      rulesWithReferences.map((rule) => {
+        const value = convertCSSRuleToProperties(rule);
+        return value;
+      })
+    );
+    
+    setValues([...Array.from(uniqueSet)]);
+
+  }, [rulesWithReferences]);
 
   return (
     <div style={{}}>
@@ -45,68 +70,44 @@ export const ComponentStyles: React.FC = () => {
                 styles={value}
                 onChange={(newStyle) => {
                   setValue(newStyle);
-                  updateCSSRulePure(currentRule,codegen.css(value,{selector:currentRule.selectorText}))
+                  updateCSSRulePure(
+                    currentRule,
+                    codegen.css(value, { selector: currentRule.selectorText })
+                  );
                 }}
-              >
-              </Editor>
+              ></Editor>
             </>
           ) : (
             <></>
           )}
-          {/* {rulesWithReferences.map((rule, index) => {
-            if (!rule) return null;
-
-            const value = convertCSSRuleToProperties(rule.rule);
-            return (
-              <div
-                key={`${rule.selector}+${index}`}
-                style={{ backgroundColor: "#e8e8e8", padding: "8px" }}
-              >
-                <h1>{rule.selector}</h1>
-                <Editor
-                  showRegenerate={false}
-                  key={`editor-${rule.selector}+${index}`}
-                  theme={defaultTheme}
-                  styles={value}
-                  onChange={(newStyle) => {
-                    updateCSSRule(
-                      rulesWithReferences[index],
-                      convertPropertiesToCSSRule(newStyle)
-                    );
-                  }}
-                >
+         
+            <>
+              {rulesWithReferences.map((rule, index) => {
+                return (
                   <div
-                    style={{
-                      display: "grid",
-                      gap: ".5rem",
-                      borderRightWidth: "1px",
-                      borderRightStyle: "solid",
-                      borderColor: "border",
-                      padding: 4,
-                    }}
+                    key={`editor-2-${rule.selectorText}-${index}`}
+                    style={{ backgroundColor: "#e8e8e8", padding: "8px" }}
                   >
-                    <h3>Typography</h3>
-                    <Inputs.FontSize />
-                    <Inputs.LineHeight />
-                    <Inputs.TextAlign />
-                    <Inputs.FontFamily />
-                    <h3>Colors</h3>
-                    <Inputs.Color />
-                    <Inputs.BackgroundColor />
-                    <Inputs.Flex />
-                    <Inputs.Margin />
-                    <Inputs.Padding />
-                    <Inputs.Border />
-                    <Inputs.BorderRadius />
-                    <Inputs.AlignItems />
-                    <Inputs.JustifyContent />
-                    <Inputs.FlexDirection />
-                    <Inputs.BackgroundImage />
+                    <h1>{rule.selectorText}</h1>
+                    <Editor
+                      showRegenerate={false}
+                      key={`editor-inside-${rule.selectorText}-${index}`}
+                      theme={defaultTheme}
+                      styles={values[index]}
+                      onChange={(newStyle) => {
+                        setValueByIndex(newStyle, index);
+                        updateCSSRule(
+                          rule,
+                          codegen.css(values[index], {
+                            selector: rule.selectorText,
+                          })
+                        );
+                      }}
+                    ></Editor>
                   </div>
-                </Editor>
-              </div>
-            );
-          })} */}
+                );
+              })}
+            </>
         </>
       </form>
     </div>

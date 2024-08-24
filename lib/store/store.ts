@@ -2,8 +2,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch } from 'react-redux';
 import { canvasReducer } from './canvasSlice';
+import { enableMapSet } from 'immer';
 // Import your reducers here
 // import someReducer from './someSlice';
+enableMapSet();
 
 const store = configureStore({
   middleware: (getDefaultMiddleware) => getDefaultMiddleware({

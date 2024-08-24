@@ -84,6 +84,9 @@ const Home: React.FC = (props: any) => {
           left: "0px",
           right: "320px",
           overflow: "scroll",
+          margin: '16px',
+          boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.2)",
+          borderRadius: '5px',
         }}
       >
         {props.data?.flatData ? <Canvas {...props} /> : <></>}
