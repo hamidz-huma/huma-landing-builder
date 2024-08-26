@@ -8,7 +8,8 @@ import { exportHTML } from "@/exportHtml";
 import { useAppDispatch, useAppSelector } from "@/lib/hook";
 import parse from "html-react-parser";
 import { setSelectedElement } from "@/lib/store/canvasSlice";
-import { BUILDER_IDS, generateHtmlString } from "@/lib/utils";
+import { addNewEmptySection, BUILDER_IDS, generateHtmlString } from "@/lib/utils";
+import { IFrameMessage } from "./Canvas";
 
 export const ComponentProperties: React.FC = () => {
   const selectedElement = useAppSelector((state) => state.app.selectedElement);
@@ -17,7 +18,7 @@ export const ComponentProperties: React.FC = () => {
     useState<React.JSX.Element | null>(null);
   // Initialize state for each attribute
   const [attributeValues, setAttributeValues] = useState<any>(null);
-
+  const flatData = useAppSelector((state) => state.app.flatData);
   useEffect(() => {
     if (!selectedElement) return;
     const element = parse(selectedElement) as unknown as React.JSX.Element;
@@ -180,6 +181,10 @@ export const ComponentProperties: React.FC = () => {
     );
   };
 
+  const addNewSection=()=>{
+    addNewEmptySection()
+  }
+
   return (
     <div style={{}}>
       <div>
@@ -191,6 +196,24 @@ export const ComponentProperties: React.FC = () => {
           Export HTML
         </button>
       </div>
+      <h3>Sections</h3>
+
+      <div>
+        <ul>
+          {flatData.sections &&
+            flatData.sections.map((s, idx) => {
+              return <li>section {idx}</li>;
+            })}
+        </ul>
+        <button
+          type="button"
+          className="bg-blue-500 hover:bg-blue-200 text-white font-sm py-1 px-4 rounded"
+          onClick={()=>addNewSection()}
+        >
+          Add Section
+        </button>
+      </div>
+
       <h3>Properties</h3>
       <form onSubmit={handleSubmit}>
         {currentElement ? (

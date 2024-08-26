@@ -8,13 +8,14 @@ import { useAppDispatch, useAppSelector } from "@/lib/hook";
 import Modal from "react-modal";
 
 import {
+  setFlatData,
   setMessage,
   setRulesWithReferences,
   setSelectedElement,
   setSelectedElementStyle,
 } from "@/lib/store/canvasSlice";
 import { v4 as uuidv4 } from "uuid";
-import parse from "html-react-parser";
+import parse, { Element } from "html-react-parser";
 import {
   addStylesheetWithComputedStyles,
   generateHtmlString,
@@ -22,6 +23,8 @@ import {
   getCSSRuleReferencesByClassNames,
   getSelectorByElementId,
   BUILDER_IDS,
+  getAllStyleElementsBySelector,
+  getAttributes,
 } from "@/lib/utils";
 import {
   getElementPosition,
@@ -30,6 +33,8 @@ import {
   handleDragStart,
   handleDrop,
 } from "@/lib/drag-drop-utils";
+import { updateSections } from "@/lib/squidex";
+import { registerComponent } from "./../lib/webComponents/paragraph";
 export interface IFrameMessage {
   source: string;
   message: {
@@ -38,15 +43,21 @@ export interface IFrameMessage {
   };
 }
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      "my-component": any;
+    }
+  }
+}
 const customStyles = {
-  content: {
-  },
+  content: {},
 };
 
 interface CanvasComponent {
   id: string;
   type: string;
-  component: JSX.Element;
+  component: string;
 }
 //@ts-ignore
 export const IframeComponent = ({ srcDoc, ...props }) => {
@@ -54,25 +65,19 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
   const dispatch = useAppDispatch();
   const selectedElement = useAppSelector((state) => state.app.selectedElement);
   const message = useAppSelector((state) => state.app.message);
+  const flatData = useAppSelector((state) => state.app.flatData);
 
   let hoverMenu: HTMLDivElement | null = null;
+
   useEffect(() => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;
+
     if (!selectedElement || typeof selectedElement !== "string") return;
 
     const element = parse(selectedElement);
 
     if (!React.isValidElement(element)) return;
-
-    const getAttributes = (
-      reactElement: string | React.JSX.Element | React.JSX.Element[] | null
-    ) => {
-      if (React.isValidElement(reactElement)) {
-        return reactElement.props;
-      }
-      return null;
-    };
 
     const attributes = getAttributes(element);
 
@@ -88,6 +93,9 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
         getSelectorByElementId(element.props[BUILDER_IDS.DATA_ID])
       );
 
+      const sectionToUpdate = iframeDoc?.querySelectorAll(
+        "section[builder-section-id]"
+      );
       if (elementToUpdate && iframeDoc) {
         // Replace the entire element with new content
         elementToUpdate.outerHTML = generateHtmlString(
@@ -96,6 +104,17 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
         ); // Add your new content
         // Replace the old element with the new one
         // elementToUpdate.replaceWith(newElement);
+        const f = { ...flatData };
+        f.styles = [...getAllStyleElementsBySelector()];
+        f.sections = Array.from(sectionToUpdate).map((m) => {
+          return {
+            content: m.innerHTML,
+            props: {},
+            name: m.tagName,
+          };
+        });
+        dispatch(setFlatData(f));
+        updateSections(f);
       }
     }
 
@@ -127,6 +146,16 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
         iframe?.contentWindow?.addEventListener("message", (e) => {
           const { source, message } = e.data;
           if (source == "parent") {
+            if (message.type === "add-section") {
+              const selectedElement = iframeDoc?.body;
+              const elementToAdd = message.data.content;
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(elementToAdd, "text/html");
+              const htmlNode = doc.body.firstChild;
+              if (!htmlNode) return;
+
+              selectedElement.appendChild(htmlNode);
+            }
             if (message.type == "add") {
               const selectedElement = iframeDoc?.querySelector(
                 getSelectorByElementId(message.data.selectedElementId)
@@ -201,7 +230,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
 
       // Remove each selected element
       selectedItems.forEach((item) => {
-        item.removeAttribute(BUILDER_IDS.DATA_ID);
+        // item.removeAttribute(BUILDER_IDS.DATA_ID);
         item.removeAttribute("draggable");
       });
 
@@ -359,6 +388,8 @@ export const Canvas = (props: {
   const [modalIsOpen, setIsOpen] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string>();
 
+  const dispatch = useAppDispatch();
+
   useEffect(() => {
     if (message?.message.type == "open-add-new-element-dialog") {
       const id = message?.message.data.selectedElementId;
@@ -411,45 +442,39 @@ export const Canvas = (props: {
         const component: CanvasComponent = {
           id: `${index + 1}`,
           type: ItemTypes.SECTION,
-          component: (
-            <section
-              key={value.id}
-              dangerouslySetInnerHTML={{ __html: value.content }}
-            />
-          ),
+          component:value.content
         };
         return component;
       })
     : [];
 
   const [components, setComponents] = useState<CanvasComponent[]>([
-    headerComponent,
     ...sectionsComponent,
   ]);
 
-  const addComponent = useCallback((type: string) => {
-    let component;
-    switch (type) {
-      case ItemTypes.SECTION:
-        component = <SectionComponent />;
-        break;
-      case ItemTypes.DIV:
-        component = <DivComponent />;
-        break;
-      case ItemTypes.CLOCK:
-        component = <Clocks />;
-        break;
-      case ItemTypes.HERO:
-        component = <Hero />;
-        break;
-      default:
-        return;
-    }
-    setComponents((prev) => [
-      ...prev,
-      { id: `${prev.length + 1}`, type, component },
-    ]);
-  }, []);
+  // const addComponent = useCallback((type: string) => {
+  //   let component;
+  //   switch (type) {
+  //     case ItemTypes.SECTION:
+  //       component = <SectionComponent />;
+  //       break;
+  //     case ItemTypes.DIV:
+  //       component = <DivComponent />;
+  //       break;
+  //     case ItemTypes.CLOCK:
+  //       component = <Clocks />;
+  //       break;
+  //     case ItemTypes.HERO:
+  //       component = <Hero />;
+  //       break;
+  //     default:
+  //       return;
+  //   }
+  //   setComponents((prev) => [
+  //     ...prev,
+  //     { id: `${prev.length + 1}`, type, component },
+  //   ]);
+  // }, []);
 
   const scripts = [
     <script
@@ -485,66 +510,68 @@ export const Canvas = (props: {
     ),
   ];
   const styles: React.JSX.Element[] = [
-    <style
-      type="text/css"
-      key={"0"}
-      dangerouslySetInnerHTML={{
-        __html: `
-        #builder-hover-menu{
-        z-index: 10000;
-        background-color: #478dea;
-    color: white;
-    padding: 5px;
-    border-radius: 4px;
-    box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
-        }
-        .builder-add-element{
-            color: white;
-            font-size: 12px;
-            cursor: pointer;
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            line-height: 20px;
-            text-align: center;
-            background: black;
-            }
-        .draggable{
-            background-color: lightgreen;
-            cursor: grab;
-            position: absolute;
-        }
-        .drop-target {
-            border: 2px dashed red;
-        }
+    // <style
+    //   type="text/css"
+    //   key={"0"}
+    //   dangerouslySetInnerHTML={{
+    //     __html: `
+    //     #builder-hover-menu{
+    //     z-index: 10000;
+    //     background-color: #478dea;
+    // color: white;
+    // padding: 5px;
+    // border-radius: 4px;
+    // box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
+    //     }
+    //     .builder-add-element{
+    //         color: white;
+    //         font-size: 12px;
+    //         cursor: pointer;
+    //         display: inline-block;
+    //         width: 20px;
+    //         height: 20px;
+    //         line-height: 20px;
+    //         text-align: center;
+    //         background: black;
+    //         }
+    //     .draggable{
+    //         background-color: lightgreen;
+    //         cursor: grab;
+    //         position: absolute;
+    //     }
+    //     .drop-target {
+    //         border: 2px dashed red;
+    //     }
 
-            .drag-hover,.drag-over{
-             border: 1px dashed lightgreen;
-            }
-        .placeholder {
-            background-color: rgba(0, 255, 0, 0.2);
-            border: 2px dashed green;
-            position: absolute;
-        }
-    *[data-builder-id] {
-     border: 1px dashed #cd3c4a;
-    border-radius: 5px;
-      cursor: move;
-    }
-    `,
-      }}
-    />,
-    <style
-      type="text/css"
-      key={"1"}
-      dangerouslySetInnerHTML={{ __html: props.cssString }}
-    />,
+    //         .drag-hover,.drag-over{
+    //          border: 1px dashed lightgreen;
+    //         }
+    //     .placeholder {
+    //         background-color: rgba(0, 255, 0, 0.2);
+    //         border: 2px dashed green;
+    //         position: absolute;
+    //     }
+    // *[data-builder-id] {
+    //  border: 1px dashed #cd3c4a;
+    // border-radius: 5px;
+    //   cursor: move;
+    // }
+    // `,
+    //   }}
+    // />,
+    // <style
+    //   type="text/css"
+    //   key={"1"}
+    //   dangerouslySetInnerHTML={{ __html: props.cssString }}
+    // />,
     ...props.data?.flatData?.styles.map(
-      (styleString: { style: string }, index: number) => {
+      (styleString: { style: string; props: any }, index: number) => {
         return (
           <style
             key={index + 2}
             type="text/css"
+            id={index + 2}
+            {...styleString.props}
             dangerouslySetInnerHTML={{
               __html: styleString.style,
             }}
@@ -560,10 +587,11 @@ export const Canvas = (props: {
     document.body.appendChild(iframe);
     const iframeDoc = iframe.contentDocument;
 
+    dispatch(setFlatData(props.data?.flatData));
+
     if (iframeDoc) {
       iframeDoc.body.innerHTML = ``;
       iframeDoc.head.innerHTML = `<meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>`;
-      iframeDoc.head.innerHTML = `<style id="builder-custom-style"></style>`;
 
       const styleHTMLs = [
         renderToStaticMarkup(
@@ -573,13 +601,6 @@ export const Canvas = (props: {
             href="https://cdn.jsdelivr.net/npm/@splidejs/splide@3.2.2/dist/css/splide-core.min.css"
           ></link>
         ),
-        // renderToStaticMarkup(
-        //   <link
-        //     rel="stylesheet"
-        //     type="text/css"
-        //     href="https://cdn.prod.website-files.com/6684599c709edcc788d9219e/css/landing-page-huma-workspace.b0981047a.min.css"
-        //   ></link>
-        // ),
       ];
 
       styleHTMLs.forEach((styleHTMLs) => {
@@ -603,13 +624,14 @@ export const Canvas = (props: {
       });
 
       components.forEach(({ component, id }) => {
-        const styleHTML = renderToStaticMarkup(component);
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = styleHTML;
-        const styleNode = tempDiv.querySelector("section");
-        styleNode?.setAttribute("builder-section-id", id);
-        if (styleNode?.firstElementChild) {
-          iframeDoc.body.appendChild(styleNode);
+        // const styleHTML = renderToStaticMarkup(component);
+        const tempDiv = document.createElement("section");
+        tempDiv.setAttribute('builder-section-id',id);
+        tempDiv.classList.add('hc-waitlist-page-section');
+        tempDiv.innerHTML = component
+
+        if (tempDiv) {
+          iframeDoc.body.appendChild(tempDiv);
         }
       });
 
@@ -648,6 +670,7 @@ export const Canvas = (props: {
           overflowY: "auto",
         }}
       />
+      <my-component />
       <Modal
         isOpen={modalIsOpen}
         style={customStyles}
@@ -658,8 +681,12 @@ export const Canvas = (props: {
         <div>
           <div>
             <h2>Heading</h2>
-            <button onClick={() => closeModal("<h1>Sample Heading 1</h1>")}>Heading 1</button>
-            <button onClick={() => closeModal("<h2>Sample Heading 2</h2>")}>Heading 2</button>
+            <button onClick={() => closeModal("<h1>Sample Heading 1</h1>")}>
+              Heading 1
+            </button>
+            <button onClick={() => closeModal("<h2>Sample Heading 2</h2>")}>
+              Heading 2
+            </button>
             <h2>Paragrapgh</h2>
             <button onClick={() => closeModal("<p>Sample Paragraph</p>")}>
               Paragrapgh
@@ -673,8 +700,16 @@ export const Canvas = (props: {
           </div>
 
           <div>
-          <h2>Template</h2>
-          <button onClick={() => closeModal("<h1></h1>")}>Heading 1</button>
+            <h2>Template</h2>
+            <button
+              onClick={() =>
+                closeModal(
+                  `<h1 class="h1-hc-waitlist-page centre-alighn" >Launch digital health solutions <br>in days, not years.</h1>`
+                )
+              }
+            >
+              Heading 1
+            </button>
           </div>
         </div>
       </Modal>

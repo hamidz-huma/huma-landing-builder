@@ -33,7 +33,7 @@ export const getElementPosition = (element: Element): { x: number; y: number } =
 }
 
 export const handleDragStart = (event) => {
-    if (!event || !event.target.id && ['HTML', 'BODY'].includes(event.target.tagName)) return
+    if (!event || !event.target.id && ['HTML', 'BODY','STYLE'].includes(event.target.tagName)) return
     event.dataTransfer.setData("text/plain", event.target.getAttribute(BUILDER_IDS.DATA_ID));
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;

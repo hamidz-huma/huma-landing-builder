@@ -6,7 +6,8 @@ export interface ICanvasState {
   canvas: any;
   selectedElementStyle: any;
   rulesWithReferences: any;
-  message: IFrameMessage | null
+  message: IFrameMessage | null;
+  flatData: any
 }
 
 const initialState: ICanvasState = {
@@ -14,13 +15,17 @@ const initialState: ICanvasState = {
   canvas: undefined,
   selectedElementStyle: undefined,
   rulesWithReferences: [],
-  message: null
+  message: null,
+  flatData: {}
 };
 
 export const canvasSlice = createSlice({
   name: "app",
   initialState,
   reducers: {
+    setFlatData:(state, action: PayloadAction<any>) => {
+      state.flatData = action.payload
+    },
     setMessage:(state, action: PayloadAction<IFrameMessage>)=>{
       state.message = action.payload
     },
@@ -39,5 +44,5 @@ export const canvasSlice = createSlice({
   },
 });
 
-export const { setSelectedElement, updateSelectedElement ,setRulesWithReferences,setSelectedElementStyle,setMessage} = canvasSlice.actions;
+export const { setSelectedElement, updateSelectedElement,setFlatData ,setRulesWithReferences,setSelectedElementStyle,setMessage} = canvasSlice.actions;
 export const canvasReducer = canvasSlice.reducer;

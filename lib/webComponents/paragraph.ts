@@ -1,32 +1,34 @@
 export class MyCustomElement extends HTMLElement {
-    constructor() {
-      super();
-      // Attach a shadow DOM tree to the instance
-      const shadow = this.attachShadow({ mode: 'open' });
-  
-      // Create a paragraph element
-      const paragraph = document.createElement('p');
-      paragraph.textContent = 'Hello, I am a custom element!';
-  
-      // Append the paragraph to the shadow root
-      shadow.appendChild(paragraph);
-    }
-  
-    connectedCallback() {
-      // Called when the element is inserted into the DOM
-    }
-  
-    disconnectedCallback() {
-      // Called when the element is removed from the DOM
-    }
-  
-    attributeChangedCallback(name, oldValue, newValue) {
-      // Called when an attribute is added, removed, or changed
-    }
-  
-    static get observedAttributes() {
-      return ['my-attribute']; // List of attributes to monitor
-    }
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+  }
+
+  connectedCallback() {
+    this.render();
+  }
+
+  render() {
+    if (!this.shadowRoot) return
+    this.shadowRoot.innerHTML = `
+    <div class="my-component">
+      <h1>Hello, Web Components!</h1>
+      <p>This is a simple example of a web component.</p>
+    </div>
+  `;
+  }
   }
   
-  customElements.define('my-custom-element', MyCustomElement);
+
+  export const registerComponent = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      console.log(window.customElements.get('my-contianer'));
+      if (!window.customElements.get('my-contianer')) {
+        window.customElements.define('my-component', MyCustomElement);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  

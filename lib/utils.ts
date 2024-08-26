@@ -2,6 +2,7 @@
 import React from "react";
 import * as CSS from 'csstype';
 import { codegen, Styles } from "@compai/css-gui";
+import { IFrameMessage } from "@/components/Canvas";
 export const BUILDER_IDS = {
     'DATA_ID': 'data-builder-id'
 }
@@ -125,8 +126,8 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
                     v = value
                 }
                 if (v) {
-                    if (newPropName == 'fontSize' && (value as string).includes('clamp')) { 
-                    }else{
+                    if (newPropName == 'fontSize' && (value as string).includes('clamp')) {
+                    } else {
                         style[newPropName] = v
                     }
 
@@ -141,6 +142,52 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
     return style;
 }
 
+export const addNewEmptySection = () => {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+    const sections = iframeDocument?.querySelectorAll(
+        "section[builder-section-id]"
+    );
+    const sectionCount = sections.length
+    const message: IFrameMessage = {
+        source: "parent",
+        message: {
+            type: "add-section",
+            data: {
+                selectedElementId: 'body',
+                content: `<section class="hc-waitlist-page-section" builder-section-id=${sectionCount+1}><div>EMPTY</div></section>`,
+            },
+        },
+    };
+
+    iframe.contentWindow.postMessage(message, "*");
+}
+
+export const getAllStyleElementsBySelector = (): Array<any> => {
+    const iframe = document.getElementsByTagName("iframe")[0];
+    const iframeDocument =
+        iframe?.contentDocument || iframe?.contentWindow?.document;
+    if (!iframeDocument) return;
+    let styleElements = iframeDocument.querySelectorAll('style');
+    return Array.from(styleElements).filter((styleEl)=> styleEl.hasAttribute('id')).map((styleEl) => {
+
+        const attrArray = Array.from(styleEl.attributes)
+        const attributes: { [key as string]: string } = {};
+
+        attrArray.forEach((attr, attrIndx: number) => {
+            attributes[attrArray[attrIndx].name] = styleEl.attributes.item(attrIndx)?.value
+        }
+        );
+
+        return {
+            props: attributes,
+            style: styleEl.innerHTML
+        }
+    })
+
+}
 export const updateCSSRulePure = (currentRule, styleString: string) => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDocument =
@@ -386,6 +433,15 @@ export const getElementStyleReferences = (iframeRef: React.RefObject<HTMLIFrameE
 
     return elementsWithStyles;
 }
+
+export const getAttributes = (
+    reactElement: string | React.JSX.Element | React.JSX.Element[] | null
+) => {
+    if (React.isValidElement(reactElement)) {
+        return reactElement.props;
+    }
+    return null;
+};
 
 export const generateHtmlString = (reactElement, attributes) => {
     if (!React.isValidElement(reactElement)) {
