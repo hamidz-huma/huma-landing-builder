@@ -118,13 +118,13 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
       }
     }
 
-    const elements = iframeDoc?.querySelectorAll(`[${BUILDER_IDS.DATA_ID}]`);
-    elements?.forEach((element) => {
-      element.addEventListener("dragstart", handleDragStart);
-      element.addEventListener("dragover", handleDragOver);
-      element.addEventListener("dragleave", handleDragLeave);
-      element.addEventListener("drop", handleDrop);
-    });
+    // const elements = iframeDoc?.querySelectorAll(`[${BUILDER_IDS.DATA_ID}]`);
+    // elements?.forEach((element) => {
+    //   element.addEventListener("dragstart", handleDragStart);
+    //   element.addEventListener("dragover", handleDragOver);
+    //   element.addEventListener("dragleave", handleDragLeave);
+    //   element.addEventListener("drop", handleDrop);
+    // });
   }, [selectedElement]);
 
   useEffect(() => {
@@ -142,6 +142,11 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
           hoverMenu.setAttribute("id", "builder-hover-menu");
           iframeDoc.documentElement.appendChild(hoverMenu);
         }
+
+        iframeDoc.body.addEventListener("dragstart", handleDragStart);
+        iframeDoc.body.addEventListener("dragover", handleDragOver);
+        iframeDoc.body.addEventListener("dragleave", handleDragLeave);
+        iframeDoc.body.addEventListener("drop", handleDrop);
 
         iframe?.contentWindow?.addEventListener("message", (e) => {
           const { source, message } = e.data;
@@ -213,6 +218,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
       event.preventDefault();
       event.stopPropagation();
       const selectedElement = event.target as Element;
+      if (event.target.tagName == 'BODY') return;
 
       const newID = selectedElement.hasAttribute(BUILDER_IDS.DATA_ID)
         ? selectedElement.getAttribute(BUILDER_IDS.DATA_ID) || uuidv4()
@@ -344,6 +350,11 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
           iframe.contentDocument || iframe?.contentWindow?.document;
         if (iframeDoc) {
           iframeDoc.body.removeEventListener("mouseover", handleMouseOver);
+
+        iframeDoc.body.removeEventListener("dragstart", handleDragStart);
+        iframeDoc.body.removeEventListener("dragover", handleDragOver);
+        iframeDoc.body.removeEventListener("dragleave", handleDragLeave);
+        iframeDoc.body.removeEventListener("drop", handleDrop);
           // iframeDoc.body.removeEventListener("click", handleElementClick);
         }
       }
@@ -510,55 +521,50 @@ export const Canvas = (props: {
     ),
   ];
   const styles: React.JSX.Element[] = [
-    // <style
-    //   type="text/css"
-    //   key={"0"}
-    //   dangerouslySetInnerHTML={{
-    //     __html: `
-    //     #builder-hover-menu{
-    //     z-index: 10000;
-    //     background-color: #478dea;
-    // color: white;
-    // padding: 5px;
-    // border-radius: 4px;
-    // box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
-    //     }
-    //     .builder-add-element{
-    //         color: white;
-    //         font-size: 12px;
-    //         cursor: pointer;
-    //         display: inline-block;
-    //         width: 20px;
-    //         height: 20px;
-    //         line-height: 20px;
-    //         text-align: center;
-    //         background: black;
-    //         }
-    //     .draggable{
-    //         background-color: lightgreen;
-    //         cursor: grab;
-    //         position: absolute;
-    //     }
-    //     .drop-target {
-    //         border: 2px dashed red;
-    //     }
+    <style
+      type="text/css"
+      key={"0"}
+      dangerouslySetInnerHTML={{
+        __html: `
+        #builder-hover-menu{
+        z-index: 10000;
+        background-color: #478dea;
+    color: white;
+    padding: 5px;
+    border-radius: 4px;
+    box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
+        }
+        .builder-add-element{
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            background: black;
+            }
+        .draggable{
+            background-color: lightgreen;
+            cursor: grab;
+            position: absolute;
+        }
+        .drop-target {
+            border: 2px dashed red;
+        }
 
-    //         .drag-hover,.drag-over{
-    //          border: 1px dashed lightgreen;
-    //         }
-    //     .placeholder {
-    //         background-color: rgba(0, 255, 0, 0.2);
-    //         border: 2px dashed green;
-    //         position: absolute;
-    //     }
-    // *[data-builder-id] {
-    //  border: 1px dashed #cd3c4a;
-    // border-radius: 5px;
-    //   cursor: move;
-    // }
-    // `,
-    //   }}
-    // />,
+            .drag-hover,.drag-over{
+             border-bottom: 2px dashed lightgreen;
+            }
+        .placeholder {
+            background-color: rgba(0, 255, 0, 0.2);
+            border: 2px dashed green;
+            position: absolute;
+        }
+    `,
+      }}
+    />,
     // <style
     //   type="text/css"
     //   key={"1"}
@@ -693,7 +699,7 @@ export const Canvas = (props: {
             </button>
             <h2>Image</h2>
             <button
-              onClick={() => closeModal("<img width='200px' height='200px'/>")}
+              onClick={() => closeModal("<img width='200px' height='200px' src='https://placehold.co/200x200/png'/>")}
             >
               Image
             </button>

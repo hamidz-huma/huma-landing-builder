@@ -66,13 +66,16 @@ export const handleDragOver = (e) => {
     const target = e.target as Element;
 
     // const {x, y} = getElementPositionInScreen(target);
-    const x = e.clientX; // X coordinate relative to the viewport
-    const y = e.clientY;
+    const x = e.clientX - target.offsetWidth / 2;
+    const y = e.clientY - target.offsetHeight / 2;
+    // const x = e.clientX; // X coordinate relative to the viewport
+    // const y = e.clientY;
+    console.log(x,y,'mouse:', e.clientX,e.clientY)
     const elementsAtPoint = iframeDoc?.elementsFromPoint(x, y).filter((el) => {
-        if ( el !== target) {
+        if ( el !== target && !['BODY','HTML'].includes(el.tagName)) {
             return el;
         }
-    }).slice(0, 2);
+    })
     iframeDoc?.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
     elementsAtPoint?.forEach(elementAtPoint => {
         if (!elementAtPoint?.classList.contains('draggable')) {
@@ -90,13 +93,13 @@ export const handleDrop = (event) => {
     const iframeDoc = iframe.contentDocument;
 
     const id = event.dataTransfer.getData("text/plain");
-    const draggedElement = iframeDoc?.querySelectorAll(getSelectorByElementId(id))[0];
+    const draggedElement = iframeDoc?.querySelector(getSelectorByElementId(id));
 
     const lengthOfDropTargets = iframeDoc?.querySelectorAll('.drag-over').length || 1;
-    const dropTarget = iframeDoc?.querySelectorAll('.drag-over')[lengthOfDropTargets-1] as Element
-
+    const dropTarget = Array.from(iframeDoc?.querySelectorAll('.drag-over') || [])[lengthOfDropTargets-1]
+    console.log(iframeDoc?.querySelectorAll('.drag-over'))
     if (draggedElement && dropTarget) {
-
+        console.log('target',dropTarget)
         const targetRect = dropTarget.getBoundingClientRect();
         const draggedRect = draggedElement?.getBoundingClientRect();
 
@@ -107,9 +110,12 @@ export const handleDrop = (event) => {
         // dropTarget.insertAdjacentElement('beforeend',
         //     draggedElement
         // );
-        if (dropTarget.parentNode){
-            dropTarget.parentNode.insertBefore(draggedElement,dropTarget.nextElementSibling);
+        if (dropTarget.parentNode && dropTarget.parentElement && ['DIV','SECTION','DIV'].includes(dropTarget.parentElement?.tagName)){
+            dropTarget.appendChild(draggedElement);
+        }else{
+            return
         }
+            
 
         iframeDoc?.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         iframeDoc?.querySelectorAll('.draggable').forEach(el => {
