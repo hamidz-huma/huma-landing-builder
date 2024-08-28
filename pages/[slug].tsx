@@ -34,25 +34,25 @@ export const getServerSideProps = (async (context) => {
         props
         name
         content
-      },
-      sections{
-        props
-        name
-        content
-      },
-      footer,
+      }
+      sections {
+        ... on PageSectionComponent{
+          props,
+          content,
+          name,
+        }
+      }
+      footer
       scripts {
         script
-      },
+      }
       styles {
-        style,
+        style
         props
       }
     }
   }
-}
-      `);
-
+}`);
   return {
     props: {
       cssString,
@@ -103,19 +103,9 @@ export const getServerSideProps = (async (context) => {
 //     },
 //   };
 // };
-//@ts-ignore
-export const DndFrame = ({ children }) => {
-  const { dragDropManager } = useContext(DndContext);
-  const { window } = useContext(FrameContext);
 
-  useEffect(() => {
-    //@ts-ignore
-    dragDropManager?.getBackend().addEventListeners(window);
-  });
-
-  return children;
-};
 const Home: React.FC = (props: any) => {
+  console.log(props.data?.flatData)
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       {/* <ComponentToolbox /> */}
