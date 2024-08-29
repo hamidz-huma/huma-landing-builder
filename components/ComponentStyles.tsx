@@ -26,7 +26,7 @@ export const ComponentStyles: React.FC = () => {
   );
 
   const [value, setValue] = useState<any>(null);
-  const [values, setValues] = useState<Array<string>>([]);
+  const [values, setValues] = useState<Array<any>>([]);
 
   const setValueByIndex = (value, index) => {
     const newValues = [...values];

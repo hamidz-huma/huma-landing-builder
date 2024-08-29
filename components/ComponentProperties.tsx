@@ -113,11 +113,11 @@ export const ComponentProperties: React.FC = () => {
                   <div key={key}>
                     <label>
                       {key}
-                      <textarea
+                      <input
                         className="block w-full rounded-md border-0 py-1.5 pl-3 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                         type="text"
                         name={key}
-                        value={value}
+                        value={value as string}
                         onChange={(e) => handleChange(e, key)}
                       />
                     </label>
@@ -131,12 +131,12 @@ export const ComponentProperties: React.FC = () => {
                 <div key={path + key}>
                   <label>
                     {key}
-                    <textarea
+                    <input
                       className="block w-full rounded-md border-0 py-1.5 pl-3 pr-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
                       type="text"
                       name={key}
                       disabled={key === BUILDER_IDS.DATA_ID ? true : false}
-                      value={value}
+                      value={value as string}
                       onChange={(e) => handleChange(e, path + key)}
                     />
                   </label>
@@ -161,7 +161,6 @@ export const ComponentProperties: React.FC = () => {
                           ? `${path}children.${index}`
                           : `children`
                       }
-                      type="text"
                       value={child}
                       onChange={(e) =>
                         handleChange(
@@ -202,7 +201,7 @@ export const ComponentProperties: React.FC = () => {
         <ul>
           {flatData.sections &&
             flatData.sections.map((s, idx) => {
-              return <li>section {idx}</li>;
+              return <li key={idx}>section {idx}</li>;
             })}
         </ul>
         <button

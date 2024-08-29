@@ -63,7 +63,7 @@ export const handleDragOver = (e) => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDoc = iframe.contentDocument;
 
-    const target = e.target as Element;
+    const target = e.target as HTMLElement;
 
     // const {x, y} = getElementPositionInScreen(target);
     const x = e.clientX - target.offsetWidth / 2;

@@ -75,7 +75,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
 
     if (!selectedElement || typeof selectedElement !== "string") return;
 
-    const element = parse(selectedElement);
+    const element = parse(selectedElement) as React.JSX.Element;
 
     if (!React.isValidElement(element)) return;
 
@@ -89,8 +89,10 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
 
     if (iframe && iframeDoc) {
       // Find the element by ID
+      const props =  element.props as {[k:string]: string}
       const elementToUpdate = iframeDoc?.querySelector(
-        getSelectorByElementId(element.props[BUILDER_IDS.DATA_ID])
+        
+        getSelectorByElementId(props[BUILDER_IDS.DATA_ID])
       );
 
       const sectionToUpdate = iframeDoc?.querySelectorAll(
@@ -185,7 +187,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
     };
 
     const handleMouseOver = (event) => {
-      const elementMoveOver = event.target as Element;
+      const elementMoveOver = event.target as HTMLElement;
       const { x, y } = getElementPosition(elementMoveOver);
 
       const iframeDoc =
@@ -217,7 +219,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
       if (!event) return;
       event.preventDefault();
       event.stopPropagation();
-      const selectedElement = event.target as Element;
+      const selectedElement = event.target as HTMLElement;
       if (event.target.tagName == 'BODY') return;
 
       const newID = selectedElement.hasAttribute(BUILDER_IDS.DATA_ID)
@@ -278,7 +280,7 @@ export const IframeComponent = ({ srcDoc, ...props }) => {
           // const elToClone = iframeDoc.getElementById(`${newID}`);
           const elToClone = selectedElement;
 
-          const divElement = elToClone?.cloneNode(true) as Element;
+          const divElement = elToClone?.cloneNode(true) as HTMLElement;
           divElement.removeAttribute(BUILDER_IDS.DATA_ID);
           divElement.removeAttribute("draggable");
           if (!divElement) return;
@@ -479,6 +481,7 @@ export const Canvas = (props: {
   const scripts = [
     <script
       key={"0"}
+      async
       src="https://d3e54v103j8qbb.cloudfront.net/js/jquery-3.5.1.min.dc5e7f18c8.js?site=6684599c709edcc788d9219e"
       type="text/javascript"
       integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
@@ -487,11 +490,13 @@ export const Canvas = (props: {
 
     <script
       key={"1"}
+      async
       src="https://cdn.prod.website-files.com/6684599c709edcc788d9219e/js/landing-page-huma-workspace.016285210.js"
       type="text/javascript"
     />,
     <script
       key={"2"}
+      async
       src="https://cdn.jsdelivr.net/npm/@splidejs/splide@3.2.2/dist/js/splide.min.js"
     ></script>,
     ...props.data?.flatData?.scripts.map(
@@ -554,11 +559,11 @@ export const Canvas = (props: {
     `,
       }}
     />,
-    // <style
-    //   type="text/css"
-    //   key={"1"}
-    //   dangerouslySetInnerHTML={{ __html: props.cssString }}
-    // />,
+    <style
+      type="text/css"
+      key={"1"}
+      dangerouslySetInnerHTML={{ __html: props.cssString }}
+    />,
     ...props.data?.flatData?.styles.map(
       (styleString: { style: string; props: any }, index: number) => {
         return (

@@ -1,48 +1,39 @@
-import React, { useContext, useEffect } from "react";
-import { Canvas } from "../components/Canvas";
-import { ComponentToolbox } from "../components/ComponentToolbox";
-import { exportHTML } from "@/exportHtml";
+import React, {useEffect } from "react";
 import { readCSSFile } from "@/readCssFile";
-import { ComponentProperties } from "@/components/ComponentProperties";
 import { fetchAPI } from "@/lib/squidex";
-import { DndContext, DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import Frame, { FrameContext } from "react-frame-component";
-import { ComponentStyles } from "@/components/ComponentStyles";
 import { GetServerSideProps } from "next";
+import { CanvasV2 } from "@/components/CanvasV2";
+import { useRouter } from "next/router";
 
-// export async function getStaticPaths() {
-//   const idList = ["cb58602e-c62a-4c21-b913-acc9398d8318"];
-//   const paths: string[] = [];
-//   idList.forEach((id) => {
-//     paths.push(`/${id}`);
-//   });
-//   return { paths, fallback: true };
-// }
 
 export const getServerSideProps = (async (context) => {
-  const { slug } = context.params;
-  console.log("slug", slug);
+  const slug = context.params?.slug;
   const cssString = readCSSFile("./components/canvas.module.css");
   const humaCssString = readCSSFile("./styles/huma.css");
   const data = await fetchAPI(`
-   {
-  findLandingsContent(id:"${slug}") {
-    id,
+    {
+  findV1LandingsContent(id: "${slug}") {
+    id
     flatData {
-      header {
-        props
-        name
-        content
-      }
+      
       sections {
-        ... on PageSectionComponent{
-          props,
-          content,
-          name,
+        ... on SectionComponentComponent {
+          props
+          children {
+            ... on HumaComponentComponent{
+              type
+              props
+              children {
+                props
+                type
+                value
+                children__Dynamic2
+              }
+            }
+          }
         }
       }
-      footer
+     
       scripts {
         script
       }
@@ -52,95 +43,86 @@ export const getServerSideProps = (async (context) => {
       }
     }
   }
-}`);
+}
+
+`);
+
   return {
     props: {
       cssString,
       humaCssString,
-      data: data?.findLandingsContent || {},
+      data: data?.findV1LandingsContent || {},
     },
   };
 }) satisfies GetServerSideProps<{ props }>;
+const loadScript = (src) => {
+  return new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
 
-// export const getStaticProps = async ({ params }: any) => {
-//   const { slug } = params;
-//   console.log("slug", slug);
-//   const cssString = readCSSFile("./components/canvas.module.css");
-//   const humaCssString = readCSSFile("./styles/huma.css");
-//   const data = await fetchAPI(`
-//    {
-//   findLandingsContent(id:"${slug}") {
-//     id,
-//     flatData {
-//       header {
-//         props
-//         name
-//         content
-//       },
-//       sections{
-//         props
-//         name
-//         content
-//       },
-//       footer,
-//       scripts {
-//         script
-//       },
-//       styles {
-//         style,
-//         props
-//       }
-//     }
-//   }
-// }
-//       `);
+    script.onload = () => {
+      resolve();
+    };
 
-//   return {
-//     props: {
-//       cssString,
-//       humaCssString,
-//       data: data?.findLandingsContent || {},
-//     },
-//   };
-// };
+    script.onerror = () => {
+      reject(new Error(`Failed to load script: ${src}`));
+    };
+
+    document.body.appendChild(script);
+  });
+};
 
 const Home: React.FC = (props: any) => {
-  console.log(props.data?.flatData)
+  const router = useRouter();
+  useEffect(() => {
+    
+    // Function to add a link tag
+    const addLinkTag = (href) => {
+      // Check if the link already exists to avoid duplicates
+      if (document.querySelector(`link[href="${href}"]`)) return;
+
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.appendChild(link);
+    };
+
+    addLinkTag(
+      "https://cdn.prod.website-files.com/6684599c709edcc788d9219e/css/landing-page-huma-workspace.b8e99a11a.min.css"
+    );
+    addLinkTag('https://cdn.jsdelivr.net/npm/@splidejs/splide@3.2.2/dist/css/splide-core.min.css')
+
+    const scripts = ['https://d3e54v103j8qbb.cloudfront.net/js/jquery-3.5.1.min.dc5e7f18c8.js?site=6684599c709edcc788d9219e','https://cdn.jsdelivr.net/npm/@splidejs/splide@3.2.2/dist/js/splide.min.js']
+    const addUrlScripts = async ()=>{
+      await Promise.all(scripts.map((src) => loadScript(src)));
+      addScripts()
+
+    }
+    const addScripts = () => {
+      const script = document.createElement("script");
+      const scripts = props.data?.flatData.scripts.map((item=> {
+        return `${item.script}`
+      } )).join('\n');
+      script.innerHTML = scripts;
+      script.defer = true;
+        document.body.appendChild(script);
+    };
+
+    addUrlScripts()
+
+    return () => {
+      document.head
+        .querySelectorAll('link[href^="/path/to/"]')
+        .forEach((link) => link.remove());
+    };
+
+  }, []); 
+
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
-      {/* <ComponentToolbox /> */}
-
-      <div
-        id="canvas"
-        style={{
-          position: "relative",
-          width: "calc(100% - 320px)",
-          left: "0px",
-          right: "320px",
-          overflow: "scroll",
-          margin: "16px",
-          boxShadow: "0px 0px 10px rgba(0, 0, 0, 0.2)",
-          borderRadius: "5px",
-        }}
-      >
-        {props.data?.flatData ? <Canvas {...props} /> : <></>}
-      </div>
-
-      <div
-        className="d-flex "
-        style={{
-          overflow: "scroll",
-          padding: "16px",
-          borderLeft: "1px solid rgba(100,100,100,0.2)",
-          width: "320px",
-          right: "0px",
-          position: "relative",
-        }}
-      >
-        <ComponentProperties />
-        <ComponentStyles />
-      </div>
-    </div>
+    <>
+      {props.data?.flatData ? <CanvasV2 {...props} /> : <></>}
+    </>
   );
 };
 

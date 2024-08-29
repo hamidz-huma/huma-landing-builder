@@ -80,7 +80,7 @@ export const updateSections = async (data: any) => {
         redirect: "follow"
     })
         .catch((error) => console.error(error));
-
+        if (!res) return
     const json = await res.json()
     if (json.errors) {
         console.log(json.errors)

@@ -1,0 +1,223 @@
+:root {
+    --default-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Ubuntu, "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+      "Hiragino Sans GB", "Microsoft Yahei UI", "Microsoft Yahei",
+      "Source Han Sans CN", sans-serif;
+  }
+  
+  .main-container {
+    overflow: hidden;
+  }
+  
+  .main-container,
+  .main-container * {
+    box-sizing: border-box;
+  }
+  
+  input,
+  select,
+  textarea,
+  button {
+    outline: 0;
+  }
+  
+  .main-container {
+    position: relative;
+    height: 792px;
+    margin: 0 auto;
+    background: linear-gradient(341.49deg, #fff7eb, #f2effa);
+    overflow: hidden;
+  }
+  .flex-column-fa {
+    position: absolute;
+    width: 754px;
+    height: 512px;
+    top: 140px;
+    left: 104px;
+    z-index: 8;
+  }
+  .final {
+    position: relative;
+    width: 754px;
+    height: 460px;
+    margin: 0 0 0 0;
+  }
+  .button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    position: relative;
+    width: 108px;
+    margin: 12px 0 0 323px;
+    padding: 12px 24px 12px 20px;
+    z-index: 8;
+    border-radius: 64px;
+  }
+  .pause {
+    flex-shrink: 0;
+    position: relative;
+    width: 16px;
+    height: 16px;
+    z-index: 9;
+  }
+  .stroke {
+    position: absolute;
+    width: 33.87%;
+    height: 84.19%;
+    top: 7.29%;
+    left: 15.63%;
+    /* background: url(../assets/images/9ed02b78-3c77-480e-9629-87f0b964f29b.png)
+      no-repeat center; */
+    background-size: 100% 100%;
+    z-index: 10;
+  }
+  .stroke-1 {
+    position: absolute;
+    width: 33.87%;
+    height: 84.19%;
+    top: 7.29%;
+    left: 51.97%;
+    /* background: url(../assets/images/687d8e7f-8607-414c-8708-67f9191c2f6f.png)
+      no-repeat center; */
+    background-size: 100% 100%;
+    z-index: 11;
+  }
+  .button-text {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-shrink: 0;
+    flex-basis: auto;
+    position: relative;
+    width: 40px;
+    height: 16px;
+    color: #424347;
+    font-family: Noto Sans, var(--default-font-family);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 16px;
+    text-align: center;
+    text-decoration: underline;
+    white-space: nowrap;
+    z-index: 12;
+  }
+  .flex-column-b {
+    position: absolute;
+    width: 482px;
+    height: 274px;
+    top: 246px;
+    left: 854px;
+    font-size: 0px;
+    z-index: 3;
+  }
+  .ready-to-start {
+    display: block;
+    position: relative;
+    height: 62px;
+    margin: 0 0 0 0;
+    color: #2f3033;
+    font-family: Victor Serif Smooth, var(--default-font-family);
+    font-size: 52px;
+    font-weight: 400;
+    line-height: 62px;
+    text-align: left;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  .large-text {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    position: relative;
+    width: 482px;
+    height: 100px;
+    margin: 16px 0 0 0;
+    color: #424347;
+    font-family: Noto Sans, var(--default-font-family);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 25.2px;
+    text-align: left;
+    z-index: 2;
+  }
+  .buttons {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 16px;
+    position: relative;
+    width: 318px;
+    margin: 40px 0 0 0;
+    z-index: 3;
+  }
+  .button-2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 8px;
+    position: relative;
+    width: 166px;
+    padding: 18px 28px 18px 28px;
+    cursor: pointer;
+    background: #424347;
+    border: none;
+    z-index: 4;
+    border-radius: 64px;
+  }
+  .button-text-3 {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-shrink: 0;
+    flex-basis: auto;
+    position: relative;
+    width: 110px;
+    height: 20px;
+    color: #ffffff;
+    font-family: Noto Sans, var(--default-font-family);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  .button-4 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 8px;
+    position: relative;
+    width: 136px;
+    padding: 18px 28px 18px 28px;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid #424347;
+    z-index: 6;
+    border-radius: 64px;
+  }
+  .contact-us {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-shrink: 0;
+    flex-basis: auto;
+    position: relative;
+    width: 80px;
+    height: 20px;
+    color: #424347;
+    font-family: Noto Sans, var(--default-font-family);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: center;
+    white-space: nowrap;
+    z-index: 7;
+  }
+  

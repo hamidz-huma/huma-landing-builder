@@ -20,7 +20,7 @@ export async function exportHTML() {
   
     // Find all img elements
     const imgElements = doc.getElementsByTagName('img');
-    const imgPromises = [];
+    const imgPromises: Array<Promise<any>> = [];
     const imgFolder = zip.folder("images");
 
     for (let i = 0; i < imgElements.length; i++) {

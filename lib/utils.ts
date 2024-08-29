@@ -53,8 +53,8 @@ export const addStylesheetWithComputedStyles = (
 
     // Get the computed styles of the element
     const computedStyles = getComputedStyle(element);
-    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
-    let styleElement = styleElementFounded ? styleElementFounded : iframeDocument.createElement("style");
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style') as HTMLStyleElement;
+    let styleElement = styleElementFounded ? styleElementFounded : iframeDocument.createElement("style") as HTMLStyleElement;
 
     if (!styleElementFounded) {
         // Create a new style element in the iframe
@@ -115,7 +115,7 @@ export const convertCSSRuleToProperties = (rule: CSSStyleRule): Styles => {
         if (CSS_PROP_NAMES.includes(propName)) {
             try {
 
-                const newPropName = kebabToCamelCase(propName) as keyof Styles
+                const newPropName = kebabToCamelCase(propName) 
                 const value = rule.style[newPropName] || rule.style.getPropertyValue(newPropName);
                 let v: any = undefined;
                 const unitMatch = value.match(/^(\d+(\.\d+)?)(px|em|rem|%)$/);
@@ -161,7 +161,7 @@ export const addNewEmptySection = () => {
             },
         },
     };
-
+    if (!iframe.contentWindow) return
     iframe.contentWindow.postMessage(message, "*");
 }
 
@@ -169,12 +169,12 @@ export const getAllStyleElementsBySelector = (): Array<any> => {
     const iframe = document.getElementsByTagName("iframe")[0];
     const iframeDocument =
         iframe?.contentDocument || iframe?.contentWindow?.document;
-    if (!iframeDocument) return;
+    if (!iframeDocument) return [];
     let styleElements = iframeDocument.querySelectorAll('style');
     return Array.from(styleElements).filter((styleEl)=> styleEl.hasAttribute('id')).map((styleEl) => {
 
         const attrArray = Array.from(styleEl.attributes)
-        const attributes: { [key as string]: string } = {};
+        const attributes: { [key:string]: string | undefined } = {};
 
         attrArray.forEach((attr, attrIndx: number) => {
             attributes[attrArray[attrIndx].name] = styleEl.attributes.item(attrIndx)?.value
@@ -193,11 +193,11 @@ export const updateCSSRulePure = (currentRule, styleString: string) => {
     const iframeDocument =
         iframe?.contentDocument || iframe?.contentWindow?.document;
     if (!iframeDocument) return;
-    let styleEl = iframeDocument.querySelector('style#builder-custom-style');
+    let styleEl = iframeDocument.querySelector('style#builder-custom-style') as HTMLStyleElement;
 
     const styleSheet = styleEl.sheet as CSSStyleSheet;
     for (let i = 0; i < styleSheet.cssRules.length; i++) {
-        const rule = styleSheet.cssRules[i];
+        const rule = styleSheet.cssRules[i] as CSSStyleRule;
         if (rule.selectorText === currentRule.selectorText) {
             styleSheet.deleteRule(i);
             styleSheet.insertRule(styleString, i);
@@ -222,12 +222,12 @@ export const updateCSSRule = (ruleReference: CSSStyleRule, styleString: string |
         if (styleSheet) {
             try {
                 for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                    const rule = styleSheet.cssRules[i];
+                    const rule = styleSheet.cssRules[i] as CSSStyleRule;
                     if (rule.selectorText === `${ruleReference.selectorText}`) {
                         cssRule = rule as CSSStyleRule;
                         styleSheet.deleteRule(i);
                         styleSheet.insertRule(styleString, i);
-                        const styleEl = styleSheet.ownerNode;
+                        const styleEl = styleSheet.ownerNode as HTMLStyleElement;
                         styleEl.innerHTML = Array.from(styleSheet.cssRules).map(s => s.cssText).join('\n')
                         break;
                     }
@@ -275,7 +275,7 @@ export const getCSSRuleReferencesByClassNames = (selectors: Array<string>) => {
             if (styleSheet) {
                 try {
                     for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                        const rule = styleSheet.cssRules[i];
+                        const rule = styleSheet.cssRules[i] as CSSStyleRule;
                         if (rule.selectorText == selector) {
                             cssRule = rule as CSSStyleRule;
                             break;
@@ -297,7 +297,7 @@ export const getCSSRuleReferencesBySelector = (selector: string) => {
         iframe?.contentDocument || iframe?.contentWindow?.document;
     if (!iframeDocument) return;
 
-    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style') as HTMLStyleElement;
     const styleSheet = styleElementFounded?.sheet as CSSStyleSheet;
 
     let cssRule;
@@ -305,7 +305,7 @@ export const getCSSRuleReferencesBySelector = (selector: string) => {
     if (styleSheet) {
         try {
             for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                const rule = styleSheet.cssRules[i];
+                const rule = styleSheet.cssRules[i] as CSSStyleRule;
                 if (rule.selectorText === selector) {
                     cssRule = rule as CSSStyleRule;
                     break;
@@ -329,12 +329,12 @@ export const overwriteIframeStyleRule = (
         iframe?.contentDocument || iframe?.contentWindow?.document;
     if (!iframeDocument) return;
 
-    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style');
+    const styleElementFounded = iframeDocument?.querySelector('style#builder-custom-style') as HTMLStyleElement;
     const styleSheet = styleElementFounded?.sheet as CSSStyleSheet;
 
 
     for (let i = 0; i < styleSheet.cssRules.length; i++) {
-        const rule = styleSheet.cssRules[i];
+        const rule = styleSheet.cssRules[i] as CSSStyleRule;
         if (rule.selectorText === selector) {
             const cssRule = rule as CSSStyleRule;
 
@@ -356,7 +356,7 @@ export const getStylesFromIframe = (iframeRef: React.RefObject<HTMLIFrameElement
     if (!iframeRef || !iframeRef.current || !iframeRef.current.contentWindow) return;
 
     const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-    const styles = [];
+    const styles: Array<any> = [];
 
     // Get all stylesheets in the iframe
     const stylesheets = iframeDoc.styleSheets;
@@ -367,15 +367,16 @@ export const getStylesFromIframe = (iframeRef: React.RefObject<HTMLIFrameElement
             const rules = sheet.cssRules || [];
 
             // Iterate through each rule in the stylesheet
-            for (let rule of rules) {
-                if (rule.selectorText) {
+            for (let rule of rules ) {
+                
+                if ((rule as CSSStyleRule).selectorText) {
                     // Check if the rule's selector matches any of the class names
-                    const selectors = rule.selectorText.split(',').map(selector => selector.trim());
+                    const selectors = (rule as CSSStyleRule).selectorText.split(',').map(selector => selector.trim());
                     for (let selector of selectors) {
                         if (classNames.some(cls => selector.includes(`.${cls}`))) {
                             styles.push({
-                                selector: rule.selectorText,
-                                style: rule.style.cssText
+                                selector: (rule as CSSStyleRule).selectorText,
+                                style: (rule as CSSStyleRule).style.cssText
                             });
                         }
                     }
@@ -408,7 +409,7 @@ export const getElementStyleReferences = (iframeRef: React.RefObject<HTMLIFrameE
     const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
 
 
-    const elementsWithStyles = [];
+    const elementsWithStyles: Array<any> = [];
 
     // Query all elements that match the class list
     const elements = iframeDoc.querySelectorAll(classNames.map(cls => `.${cls}`).join(', '));
@@ -456,7 +457,7 @@ export const generateHtmlString = (reactElement, attributes) => {
         .map(([key, value]) => `${key}="${String(value)}"`) // Convert value to string
         .join(' ');
 
-    if (selfClosingTags.has(reactElement.type)) {
+    if (selfClosingTags.has(reactElement.type as string)) {
         return `<${reactElement.type} ${attrString.replace('className', 'class')}>`;
     }
 
